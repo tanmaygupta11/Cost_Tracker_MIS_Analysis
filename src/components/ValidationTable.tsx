@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, ArrowUp, ArrowDown, FileText, Eye } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, FileText, Eye, X } from "lucide-react";
 import { ValidationFile } from "@/lib/mockData";
 
 interface ValidationTableProps {
@@ -83,6 +83,14 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
   };
 
+  const clearFilters = () => {
+    setCustomerFilter('');
+    setProjectFilter('');
+    setStatusFilter('');
+    setMonthFilter('');
+    setCurrentPage(1);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 items-center justify-between">
@@ -116,6 +124,14 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             onChange={(e) => setMonthFilter(e.target.value)}
             className="max-w-[150px]"
           />
+          <Button 
+            variant="outline" 
+            onClick={clearFilters}
+            className="flex items-center gap-2"
+          >
+            <X className="h-4 w-4" />
+            Clear Filters
+          </Button>
         </div>
         
         {onViewLeads && (

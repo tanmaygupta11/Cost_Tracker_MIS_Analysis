@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { mockLeads } from "@/lib/mockData";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
+  const navigate = useNavigate();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -81,6 +83,14 @@ const LeadsSchema = () => {
       
       <main className="container mx-auto px-4 pt-20 pb-8">
         <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/finance-dashboard')}
+            className="mb-4 flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
           <h2 className="text-3xl font-bold text-foreground mb-2">Leads Schema</h2>
           <p className="text-muted-foreground">Manage and track all leads</p>
         </div>
