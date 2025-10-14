@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, ArrowUp, ArrowDown, FileText, Eye, X } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, X } from "lucide-react";
 import { ValidationFile } from "@/lib/mockData";
 
 interface ValidationTableProps {
@@ -195,7 +195,6 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                   Approval Date <SortIcon field="validationApprovalAt" />
                 </Button>
               </TableHead>
-              <TableHead>File</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -211,11 +210,6 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                 <TableCell>{getStatusBadge(row.validationStatus)}</TableCell>
                 <TableCell className="font-semibold">₹{row.revenue.toLocaleString('en-IN')}</TableCell>
                 <TableCell>{row.validationApprovalAt}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>

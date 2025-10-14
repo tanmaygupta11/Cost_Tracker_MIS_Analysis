@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { mockLeads } from "@/lib/mockData";
-import { Download, FileText, ArrowLeft } from "lucide-react";
+import { Download, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
@@ -162,7 +162,6 @@ const LeadsSchema = () => {
                   <TableHead>Lead Status</TableHead>
                   <TableHead>Validation File ID</TableHead>
                   <TableHead>Created At</TableHead>
-                  <TableHead>File</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,11 +183,6 @@ const LeadsSchema = () => {
                     <TableCell>{getStatusBadge(lead.leadStatus)}</TableCell>
                     <TableCell>{lead.validationFileId || '-'}</TableCell>
                     <TableCell>{lead.createdAt}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
