@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import { mockValidationFiles, mockProjectData } from "@/lib/mockData";
@@ -5,9 +6,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, TrendingUp, CheckCircle, DollarSign } from "lucide-react";
+import { Download, FileText, TrendingUp, CheckCircle, DollarSign, Eye } from "lucide-react";
 
 const ClientDashboard = () => {
+  const navigate = useNavigate();
   // Filter data for a specific client (e.g., 'Tech Solutions Inc')
   const clientData = mockValidationFiles.filter(v => v.customerName === 'Tech Solutions Inc');
   
@@ -110,7 +112,13 @@ const ClientDashboard = () => {
 
         {/* Validation Files Table */}
         <div className="bg-card rounded-lg border border-border p-6">
-          <h3 className="text-xl font-semibold mb-4">Your Validation Files</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold">Your Validation Files</h3>
+            <Button onClick={() => navigate("/client-validations")} className="gap-2">
+              <Eye className="h-4 w-4" />
+              View All Leads
+            </Button>
+          </div>
           
           <div className="rounded-lg border bg-card overflow-x-auto">
             <Table>

@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import LeadsSchema from "./pages/LeadsSchema";
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientValidationTable from "./pages/ClientValidationTable";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/finance-dashboard" element={<FinanceDashboard />} />
           <Route path="/leads" element={<LeadsSchema />} />
           <Route path="/client-dashboard" element={<ClientDashboard />} />
+          <Route path="/client-validations" element={<ClientValidationTable />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
