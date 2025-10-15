@@ -1,252 +1,512 @@
-// ✅ Lead Schema Page - Using mock data for now
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+// ✅ New Client Lead Schema Page - Using new 11-column structure with Client-specific actions
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import Navigation from "@/components/Navigation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import Navigation from "@/components/Navigation";
-import { ArrowLeft, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { fetchLeads, formatCurrency, formatDate, getStatusBadge, bulkUpdateLeadApprovals } from "@/lib/supabase";
+import type { Lead } from "@/lib/supabase";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { leads as initialLeads, type Lead } from "@/lib/clientMockData";
 
 const ClientLeads = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // ✅ Local state management for mock leads data
-  const [leads] = useState<Lead[]>(initialLeads);
+  const [searchParams] = useSearchParams();
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [workDateFrom, setWorkDateFrom] = useState('');
+  const [workDateTo, setWorkDateTo] = useState('');
+  const [clientDateFrom, setClientDateFrom] = useState('');
+  const [clientDateTo, setClientDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // ✅ Get query parameters for filtering
+  const customerId = searchParams.get('customer_id');
+  const projectId = searchParams.get('project_id');
+  
+  console.log('ClientLeads - URL params:', { customerId, projectId });
+  
+  // Fetch leads data from Supabase
+  useEffect(() => {
+    const loadLeads = async () => {
+      try {
+        setLoading(true);
+        console.log('ClientLeads - Loading leads with projectId:', projectId);
+        const { data, error } = await fetchLeads(projectId || undefined);
+        
+        console.log('ClientLeads - Fetch result:', { data, error, count: data?.length });
+        
+        if (error) {
+          console.error('Error fetching leads:', error);
+          setError('Failed to load leads data');
+          return;
+        }
+        
+        setLeads(data || []);
+      } catch (err) {
+        console.error('Error loading leads:', err);
+        setError('Failed to load leads data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadLeads();
+  }, [projectId]);
   
   const rowsPerPage = 5;
 
-  // ✅ Filter leads based on status
-  const filteredLeads = useMemo(() => {
-    return leads.filter((lead) => {
-      const matchesStatus = !statusFilter || statusFilter === "ALL" || lead.status === statusFilter;
-      return matchesStatus;
+  // ✅ Filter leads based on query parameters and manual filters
+  const filteredData = useMemo(() => {
+    return leads.filter(lead => {
+      // ✅ Apply query parameter filters first
+      const matchesQueryCustomer = true; // Customer ID not in leads table
+      const matchesQueryProject = !projectId || lead.project_id === projectId;
+      
+      // ✅ Apply remaining manual filters
+      const matchesStatus = !statusFilter || statusFilter === "ALL" || lead.lead_status === statusFilter;
+      
+      // ✅ Apply Work Completion Date Range filter (using available date fields)
+      let matchesWorkDate = true;
+      if (workDateFrom || workDateTo) {
+        // Try to use final_work_completion_date or fallback to lead_id for ordering
+        const dateField = (lead as any).final_work_completion_date || (lead as any).created_at;
+        if (dateField) {
+          try {
+            const leadDate = new Date(dateField);
+            const fromDate = workDateFrom ? new Date(workDateFrom) : null;
+            const toDate = workDateTo ? new Date(workDateTo) : null;
+            
+            matchesWorkDate = (!fromDate || leadDate >= fromDate) && 
+                             (!toDate || leadDate <= toDate);
+          } catch (error) {
+            matchesWorkDate = true; // If date parsing fails, include the record
+          }
+        } else {
+          matchesWorkDate = true; // If no date field, include the record
+        }
+      }
+      
+      // ✅ Apply Client Approval Date Range filter (using available date fields)
+      let matchesClientDate = true;
+      if (clientDateFrom || clientDateTo) {
+        // Try to use client_incharge_approval_date or fallback to other date fields
+        const dateField = (lead as any).client_incharge_approval_date || (lead as any).final_work_completion_date || (lead as any).created_at;
+        if (dateField) {
+          try {
+            const leadDate = new Date(dateField);
+            const fromDate = clientDateFrom ? new Date(clientDateFrom) : null;
+            const toDate = clientDateTo ? new Date(clientDateTo) : null;
+            
+            matchesClientDate = (!fromDate || leadDate >= fromDate) && 
+                               (!toDate || leadDate <= toDate);
+          } catch (error) {
+            matchesClientDate = true; // If date parsing fails, include the record
+          }
+        } else {
+          matchesClientDate = true; // If no date field, include the record
+        }
+      }
+      
+      return matchesQueryCustomer && matchesQueryProject && matchesStatus && matchesWorkDate && matchesClientDate;
     });
-  }, [leads, statusFilter]);
+  }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
 
-  // ✅ Paginate filtered leads
-  const paginatedLeads = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    return filteredLeads.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredLeads, currentPage]);
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage);
 
-  const totalPages = Math.ceil(filteredLeads.length / rowsPerPage);
-
-  // ✅ Clear filters
-  const clearFilters = () => {
-    setStatusFilter("ALL");
-    setCurrentPage(1);
-    setSelectedRows(new Set());
+  const handleSelectLead = (leadId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedLeads(prev => [...prev, leadId]);
+    } else {
+      setSelectedLeads(prev => prev.filter(id => id !== leadId));
+    }
   };
 
-  // ✅ Handle select all on current page
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(paginatedLeads.map(l => l.lead_id)));
+      setSelectedLeads(paginatedData.map(lead => lead.lead_id));
     } else {
-      setSelectedRows(new Set());
+      setSelectedLeads([]);
     }
   };
 
-  // ✅ Handle individual row selection
-  const handleSelectRow = (id: string, checked: boolean) => {
-    const newSelected = new Set(selectedRows);
-    if (checked) {
-      newSelected.add(id);
-    } else {
-      newSelected.delete(id);
-    }
-    setSelectedRows(newSelected);
-  };
-
-  // ✅ Handle bulk download (mock action)
-  const handleBulkDownload = () => {
-    if (selectedRows.size === 0) {
+  // ✅ Client-specific bulk actions: Approve and Reject
+  const handleBulkApprove = async () => {
+    if (selectedLeads.length === 0) {
       toast({
         title: "No leads selected",
-        description: "Please select at least one lead to download",
+        description: "Please select at least one lead to approve",
         variant: "destructive"
       });
       return;
     }
-
-    toast({
-      title: "🗂 Download Started",
-      description: `Downloading ${selectedRows.size} lead file(s)...`,
-    });
+    
+    try {
+      const { error } = await bulkUpdateLeadApprovals(selectedLeads, 'Approved', 'client_incharge_approval');
+      
+      if (error) {
+        console.error('Error approving leads:', error);
+        toast({
+          title: "Error",
+          description: "Failed to approve leads. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "✅ Leads Approved",
+        description: `Approved ${selectedLeads.length} lead(s). Approval dates have been updated.`,
+      });
+      
+      // Refresh data and clear selection
+      setSelectedLeads([]);
+      // Reload leads data
+      const { data } = await fetchLeads(projectId || undefined);
+      if (data) {
+        setLeads(data);
+      }
+    } catch (err) {
+      console.error('Error approving leads:', err);
+      toast({
+        title: "Error",
+        description: "Failed to approve leads. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const getStatusBadge = (status: Lead['status']) => {
-    const variants: Record<Lead['status'], "default" | "secondary" | "destructive"> = {
-      Approved: "default",
-      Pending: "secondary",
-      Rejected: "destructive",
-    };
-    return <Badge variant={variants[status]}>{status}</Badge>;
+  const handleBulkReject = async () => {
+    if (selectedLeads.length === 0) {
+      toast({
+        title: "No leads selected",
+        description: "Please select at least one lead to reject",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const { error } = await bulkUpdateLeadApprovals(selectedLeads, 'Rejected', 'client_incharge_approval');
+      
+      if (error) {
+        console.error('Error rejecting leads:', error);
+        toast({
+          title: "Error",
+          description: "Failed to reject leads. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({
+        title: "❌ Leads Rejected",
+        description: `Rejected ${selectedLeads.length} lead(s). Approval dates have been updated.`,
+        variant: "destructive"
+      });
+      
+      // Refresh data and clear selection
+      setSelectedLeads([]);
+      // Reload leads data
+      const { data } = await fetchLeads(projectId || undefined);
+      if (data) {
+        setLeads(data);
+      }
+    } catch (err) {
+      console.error('Error rejecting leads:', err);
+      toast({
+        title: "Error",
+        description: "Failed to reject leads. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+
+
+  const clearFilters = () => {
+    setStatusFilter("ALL");
+    setWorkDateFrom('');
+    setWorkDateTo('');
+    setClientDateFrom('');
+    setClientDateTo('');
+    setSelectedLeads([]);
+    setCurrentPage(1);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation userRole="client" />
       
-      <div className="container mx-auto px-4 pt-20 pb-8">
-        {/* Header with Back Button */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/client-dashboard")}
-            className="gap-2 rounded-xl"
+      <main className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/client-dashboard')}
+            className="mb-4 flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Lead Schema</h1>
-            <p className="text-muted-foreground">View and manage all your leads</p>
-          </div>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Lead Schema</h2>
+          {customerId && projectId ? (
+            <p className="text-muted-foreground">
+              Showing leads for Customer ID: <span className="font-mono">{customerId}</span> • 
+              Project ID: <span className="font-mono">{projectId}</span>
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Manage and track your project leads</p>
+          )}
         </div>
 
-        {/* Filters Section */}
-        <div className="bg-card rounded-xl border border-border p-6 mb-6">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Status</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="bg-card rounded-lg border border-border p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading leads data...</p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                onClick={clearFilters}
-                className="rounded-xl"
-              >
-                Clear Filters
-              </Button>
-              
-              <Button
-                onClick={handleBulkDownload}
-                disabled={selectedRows.size === 0}
-                className="gap-2 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90"
-              >
-                <Download className="h-4 w-4" />
-                Download ({selectedRows.size})
-              </Button>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-red-500">{error}</p>
             </div>
-          </div>
+          ) : (
+            <>
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
+            <div className="flex flex-wrap gap-3 flex-1">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Status</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Summary */}
-          <div className="text-sm text-muted-foreground mt-4">
-            Showing {filteredLeads.length} of {leads.length} leads
-          </div>
-        </div>
-
-        {/* Leads Table */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={paginatedLeads.length > 0 && paginatedLeads.every(l => selectedRows.has(l.lead_id))}
-                    onCheckedChange={handleSelectAll}
+              {/* Work Completion Date Range Filter */}
+              <div className="flex-1 min-w-[280px]">
+                <label className="text-sm font-medium mb-2 block">Work Completion Date</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="date"
+                    value={workDateFrom}
+                    onChange={(e) => setWorkDateFrom(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
+                    placeholder="From"
                   />
-                </TableHead>
-                <TableHead>Lead ID</TableHead>
-                <TableHead>Customer Name</TableHead>
-                <TableHead>Project Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedLeads.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <p className="text-muted-foreground text-lg">No leads found.</p>
-                    <p className="text-sm text-muted-foreground mt-2">Adjust your filters or check back later.</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedLeads.map((lead) => (
-                  <TableRow key={lead.lead_id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedRows.has(lead.lead_id)}
-                        onCheckedChange={(checked) => handleSelectRow(lead.lead_id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm font-medium">{lead.lead_id}</TableCell>
-                    <TableCell>{lead.customer_name}</TableCell>
-                    <TableCell className="font-medium">{lead.project_name}</TableCell>
-                    <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                    <TableCell>{lead.date_created}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                  <span className="text-sm text-muted-foreground">to</span>
+                  <input
+                    type="date"
+                    value={workDateTo}
+                    onChange={(e) => setWorkDateTo(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
+                    placeholder="To"
+                  />
+                </div>
+              </div>
 
-        {/* Pagination */}
-        {filteredLeads.length > 0 && (
-          <div className="flex items-center justify-between mt-6">
-            <div className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredLeads.length)} of {filteredLeads.length} entries
+              {/* Client Approval Date Range Filter */}
+              <div className="flex-1 min-w-[280px]">
+                <label className="text-sm font-medium mb-2 block">Client Approval Date</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="date"
+                    value={clientDateFrom}
+                    onChange={(e) => setClientDateFrom(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
+                    placeholder="From"
+                  />
+                  <span className="text-sm text-muted-foreground">to</span>
+                  <input
+                    type="date"
+                    value={clientDateTo}
+                    onChange={(e) => setClientDateTo(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
+                    placeholder="To"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters}
+                  className="rounded-xl"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
+            
+            {selectedLeads.length > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleBulkApprove}
+                  className="bg-green-600 hover:bg-green-700 transition-colors"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Approve Selected ({selectedLeads.length})
+                </Button>
+                <Button
+                  onClick={handleBulkReject}
+                  variant="destructive"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Reject Selected ({selectedLeads.length})
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card rounded-xl border border-border w-full overflow-x-auto lg:overflow-x-visible table-container">
+            <Table className="w-full min-w-max table-auto">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={paginatedData.length > 0 && paginatedData.every(l => selectedLeads.includes(l.lead_id))}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Project ID</TableHead>
+                  <TableHead>Project Name</TableHead>
+                  <TableHead>Lead ID</TableHead>
+                  <TableHead>Final Work Completion Date</TableHead>
+                  <TableHead>Revisied Work Completion Date</TableHead>
+                  <TableHead>Original Work Completion Date</TableHead>
+                  <TableHead>Unit Basis Commercial</TableHead>
+                  <TableHead>Project Incharge Approval</TableHead>
+                  <TableHead>Project Incharge Approval Date</TableHead>
+                  <TableHead>Client Incharge Approval</TableHead>
+                  <TableHead>Client Incharge Approval Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center py-12">
+                      <p className="text-muted-foreground text-lg">
+                        {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
+                          ? "No records found for the selected date range."
+                          : (customerId && projectId 
+                            ? "No leads found for this project." 
+                            : "No leads found.")
+                        }
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
+                          ? "Try adjusting your date range or clear filters to see all records."
+                          : (customerId && projectId 
+                            ? "This customer-project combination has no leads yet." 
+                            : "Adjust your filters or check back later.")
+                        }
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedData.map((lead) => {
+                    const statusBadge = getStatusBadge(lead.lead_status);
+                    return (
+                      <TableRow key={lead.lead_id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedLeads.includes(lead.lead_id)}
+                            onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{lead.project_id || '—'}</TableCell>
+                        <TableCell className="font-medium">{lead.lead_name || '—'}</TableCell>
+                        <TableCell className="font-mono text-sm">{lead.lead_id}</TableCell>
+                        <TableCell>{formatDate((lead as any).final_work_completion_date)}</TableCell>
+                        <TableCell>{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
+                        <TableCell>{formatDate((lead as any).original_work_completion_date)}</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency((lead as any).unit_basis_commercial)}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant}
+                            className={statusBadge.className}
+                          >
+                            {(lead as any).project_incharge_approval || lead.lead_status || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant}
+                            className={statusBadge.className}
+                          >
+                            {(lead as any).client_incharge_approval || lead.lead_status || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(startIndex + rowsPerPage, filteredData.length)} of {filteredData.length} leads
+            </p>
+            
+            <div className="flex gap-1">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="rounded-xl"
               >
                 Previous
               </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(page)}
-                  className="rounded-xl min-w-[40px]"
-                >
-                  {page}
-                </Button>
-              ))}
+              
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className="min-w-[40px]"
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+              
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="rounded-xl"
               >
                 Next
               </Button>
             </div>
           </div>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      </main>
     </div>
   );
 };
 
 export default ClientLeads;
-

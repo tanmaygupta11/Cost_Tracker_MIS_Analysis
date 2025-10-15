@@ -147,7 +147,7 @@ const ClientValidationTable = () => {
     <div className="min-h-screen bg-background">
       <Navigation userRole="client" />
       
-      <div className="container mx-auto px-4 pt-20 pb-8">
+      <div className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
         {/* Header with Back Button */}
         <div className="flex items-center gap-4 mb-6">
           <Button
@@ -267,8 +267,8 @@ const ClientValidationTable = () => {
         )}
 
         {/* Validation Table */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <Table>
+        <div className="bg-card rounded-xl border border-border w-full overflow-x-auto lg:overflow-x-visible table-container">
+          <Table className="w-full min-w-max table-auto">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">

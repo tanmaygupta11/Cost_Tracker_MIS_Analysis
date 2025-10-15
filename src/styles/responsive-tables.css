@@ -1,0 +1,53 @@
+/* Responsive Table Logic - Adaptive Width Behavior */
+
+/* Default: Allow horizontal scrolling on smaller screens */
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* Large screens (≥1024px): Disable scroll, allow full expansion */
+@media (min-width: 1024px) {
+  .table-container {
+    overflow-x: visible;
+  }
+  
+  /* Ensure tables can expand beyond container if needed */
+  .table-container table {
+    min-width: max-content;
+  }
+}
+
+/* Ultra-wide screens (≥1440px): Center content with proper spacing */
+@media (min-width: 1440px) {
+  .table-container {
+    overflow-x: visible;
+  }
+  
+  /* Add subtle shadows and better spacing for ultra-wide */
+  .table-container table {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+  }
+}
+
+/* Ensure table cells have proper spacing on large screens */
+@media (min-width: 1024px) {
+  .table-container th,
+  .table-container td {
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+  }
+}
+
+/* Allow text wrapping on very wide columns for better readability */
+@media (min-width: 1440px) {
+  .table-container th:nth-child(3), /* Customer Name */
+  .table-container td:nth-child(3),
+  .table-container th:nth-child(5), /* Project Name */
+  .table-container td:nth-child(5) {
+    white-space: normal;
+    max-width: 200px;
+  }
+}
+

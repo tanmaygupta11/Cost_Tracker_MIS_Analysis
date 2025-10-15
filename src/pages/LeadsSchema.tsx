@@ -1,59 +1,152 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+// ✅ New Lead Schema Page - Using new 11-column structure
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { mockLeads } from "@/lib/mockData";
+import { fetchLeads, formatCurrency, formatDate, getStatusBadge } from "@/lib/supabase";
+import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [projectFilter, setProjectFilter] = useState('');
-  const [customerFilter, setCustomerFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [monthFilter, setMonthFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(' ');
+  const [workDateFrom, setWorkDateFrom] = useState('');
+  const [workDateTo, setWorkDateTo] = useState('');
+  const [clientDateFrom, setClientDateFrom] = useState('');
+  const [clientDateTo, setClientDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const rowsPerPage = 10;
+  // ✅ Get query parameters for filtering
+  const customerId = searchParams.get('customer_id');
+  const projectId = searchParams.get('project_id');
+  
+  console.log('LeadsSchema - URL params:', { customerId, projectId });
+  
+  // Fetch leads data from Supabase
+  useEffect(() => {
+    const loadLeads = async () => {
+      try {
+        setLoading(true);
+        console.log('LeadsSchema - Loading leads with projectId:', projectId);
+        const { data, error } = await fetchLeads(projectId || undefined);
+        
+        console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
+        
+        if (error) {
+          console.error('Error fetching leads:', error);
+          setError('Failed to load leads data');
+          return;
+        }
+        
+        setLeads(data || []);
+      } catch (err) {
+        console.error('Error loading leads:', err);
+        setError('Failed to load leads data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadLeads();
+  }, [projectId]);
+  
+  const rowsPerPage = 5;
 
+  // ✅ Filter leads based on query parameters and manual filters
   const filteredData = useMemo(() => {
-    return mockLeads.filter(lead => {
-      const matchesProject = !projectFilter || lead.projectName.toLowerCase().includes(projectFilter.toLowerCase());
-      const matchesCustomer = !customerFilter || lead.customerName.toLowerCase().includes(customerFilter.toLowerCase());
-      const matchesStatus = !statusFilter || lead.leadStatus === statusFilter;
-      const matchesMonth = !monthFilter || lead.revenueMonth.includes(monthFilter);
+    
+    return leads.filter(lead => {
+      // ✅ Apply query parameter filters first
+      // Since we're already filtering by project_id in the database query, we can skip that check here
+      const matchesQueryCustomer = true; // Customer ID not in leads table
+      const matchesQueryProject = true; // Already filtered in database query
       
-      return matchesProject && matchesCustomer && matchesStatus && matchesMonth;
+      // ✅ Apply remaining manual filters
+      const matchesStatus = !statusFilter || statusFilter.trim() === '' || statusFilter === ' ' || lead.lead_status === statusFilter;
+      
+      
+      // ✅ Apply Work Completion Date Range filter (using available date fields)
+      let matchesWorkDate = true;
+      if (workDateFrom || workDateTo) {
+        // Try to use final_work_completion_date or fallback to other date fields
+        const dateField = (lead as any).final_work_completion_date || (lead as any).created_at;
+        if (dateField) {
+          try {
+            const leadDate = new Date(dateField);
+            const fromDate = workDateFrom ? new Date(workDateFrom) : null;
+            const toDate = workDateTo ? new Date(workDateTo) : null;
+            
+            matchesWorkDate = (!fromDate || leadDate >= fromDate) && 
+                             (!toDate || leadDate <= toDate);
+          } catch (error) {
+            matchesWorkDate = true; // If date parsing fails, include the record
+          }
+        } else {
+          matchesWorkDate = true; // If no date field, include the record
+        }
+      }
+      
+      // ✅ Apply Client Approval Date Range filter (using available date fields)
+      let matchesClientDate = true;
+      if (clientDateFrom || clientDateTo) {
+        // Try to use client_incharge_approval_date or fallback to other date fields
+        const dateField = (lead as any).client_incharge_approval_date || (lead as any).final_work_completion_date || (lead as any).created_at;
+        if (dateField) {
+          try {
+            const leadDate = new Date(dateField);
+            const fromDate = clientDateFrom ? new Date(clientDateFrom) : null;
+            const toDate = clientDateTo ? new Date(clientDateTo) : null;
+            
+            matchesClientDate = (!fromDate || leadDate >= fromDate) && 
+                               (!toDate || leadDate <= toDate);
+          } catch (error) {
+            matchesClientDate = true; // If date parsing fails, include the record
+          }
+        } else {
+          matchesClientDate = true; // If no date field, include the record
+        }
+      }
+      
+      const finalMatch = matchesQueryCustomer && matchesQueryProject && matchesStatus && matchesWorkDate && matchesClientDate;
+      
+      
+      return finalMatch;
     });
-  }, [projectFilter, customerFilter, statusFilter, monthFilter]);
+  }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
+  
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage);
 
+  const handleSelectLead = (leadId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedLeads(prev => [...prev, leadId]);
+    } else {
+      setSelectedLeads(prev => prev.filter(id => id !== leadId));
+    }
+  };
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(paginatedData.map(lead => lead.id));
+      setSelectedLeads(paginatedData.map(lead => lead.lead_id));
     } else {
       setSelectedLeads([]);
     }
   };
 
-  const handleSelectLead = (leadId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedLeads([...selectedLeads, leadId]);
-    } else {
-      setSelectedLeads(selectedLeads.filter(id => id !== leadId));
-    }
-  };
-
-  const handleDownload = () => {
+  const handleBulkDownload = () => {
     if (selectedLeads.length === 0) {
       toast({
         title: "No leads selected",
@@ -69,20 +162,14 @@ const LeadsSchema = () => {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      'Approved': 'default',
-      'Pending': 'secondary',
-      'Rejected': 'destructive'
-    };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
-  };
+
 
   const clearFilters = () => {
-    setProjectFilter('');
-    setCustomerFilter('');
-    setStatusFilter('');
-    setMonthFilter('');
+    setStatusFilter(' ');
+    setWorkDateFrom('');
+    setWorkDateTo('');
+    setClientDateFrom('');
+    setClientDateTo('');
     setSelectedLeads([]);
     setCurrentPage(1);
   };
@@ -91,7 +178,7 @@ const LeadsSchema = () => {
     <div className="min-h-screen bg-background">
       <Navigation userRole="finance" />
       
-      <main className="container mx-auto px-4 pt-20 pb-8">
+      <main className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
         <div className="mb-6">
           <Button 
             variant="outline" 
@@ -101,25 +188,30 @@ const LeadsSchema = () => {
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>
-          <h2 className="text-3xl font-bold text-foreground mb-2">Leads Schema</h2>
-          <p className="text-muted-foreground">Manage and track all leads</p>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Lead Schema</h2>
+          {customerId && projectId ? (
+            <p className="text-muted-foreground">
+              Showing leads for Customer ID: <span className="font-mono">{customerId}</span> • 
+              Project ID: <span className="font-mono">{projectId}</span>
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Manage and track all leads</p>
+          )}
         </div>
 
         <div className="bg-card rounded-lg border border-border p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading leads data...</p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-red-500">{error}</p>
+            </div>
+          ) : (
+            <>
           <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
-              <Input
-                placeholder="Filter by customer..."
-                value={customerFilter}
-                onChange={(e) => setCustomerFilter(e.target.value)}
-                className="max-w-[200px]"
-              />
-              <Input
-                placeholder="Filter by project..."
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
-                className="max-w-[200px]"
-              />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="max-w-[150px]">
                   <SelectValue placeholder="Status" />
@@ -131,12 +223,51 @@ const LeadsSchema = () => {
                   <SelectItem value="Rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="Month (YYYY-MM)"
-                value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-                className="max-w-[150px]"
-              />
+              
+              {/* Work Completion Date Range Filter */}
+              <div className="flex items-center gap-2 min-w-[280px]">
+                <label className="text-sm font-medium whitespace-nowrap">Work Completion Date:</label>
+                <div className="flex gap-1">
+                  <input
+                    type="date"
+                    value={workDateFrom}
+                    onChange={(e) => setWorkDateFrom(e.target.value)}
+                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    placeholder="From"
+                  />
+                  <span className="text-sm text-muted-foreground">to</span>
+                  <input
+                    type="date"
+                    value={workDateTo}
+                    onChange={(e) => setWorkDateTo(e.target.value)}
+                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    placeholder="To"
+                  />
+                </div>
+              </div>
+              
+              {/* Client Approval Date Range Filter */}
+              <div className="flex items-center gap-2 min-w-[280px]">
+                <label className="text-sm font-medium whitespace-nowrap">Client Approval Date:</label>
+                <div className="flex gap-1">
+                  <input
+                    type="date"
+                    value={clientDateFrom}
+                    onChange={(e) => setClientDateFrom(e.target.value)}
+                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    placeholder="From"
+                  />
+                  <span className="text-sm text-muted-foreground">to</span>
+                  <input
+                    type="date"
+                    value={clientDateTo}
+                    onChange={(e) => setClientDateTo(e.target.value)}
+                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    placeholder="To"
+                  />
+                </div>
+              </div>
+              
               <Button 
                 variant="outline" 
                 onClick={clearFilters}
@@ -147,67 +278,102 @@ const LeadsSchema = () => {
               </Button>
             </div>
             
-            <div className="flex gap-2">
-              <Button 
-                variant="outline"
-                onClick={() => setSelectedLeads(filteredData.map(l => l.id))}
-              >
-                Select All
-              </Button>
-              <Button 
-                onClick={handleDownload}
-                className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
-                disabled={selectedLeads.length === 0}
+            {selectedLeads.length > 0 && (
+              <Button
+                onClick={handleBulkDownload}
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download ({selectedLeads.length})
+                Download Selected ({selectedLeads.length})
               </Button>
-            </div>
+            )}
           </div>
 
-          <div className="rounded-lg border bg-card overflow-x-auto">
-            <Table>
+          <div className="bg-card rounded-xl border border-border w-full overflow-x-auto lg:overflow-x-visible table-container">
+            <Table className="w-full min-w-max table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">
+                  <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedLeads.length === paginatedData.length && paginatedData.length > 0}
+                      checked={paginatedData.length > 0 && paginatedData.every(l => selectedLeads.includes(l.lead_id))}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Lead ID</TableHead>
                   <TableHead>Project ID</TableHead>
                   <TableHead>Project Name</TableHead>
-                  <TableHead>Customer ID</TableHead>
-                  <TableHead>Customer Name</TableHead>
-                  <TableHead>Lead Name</TableHead>
-                  <TableHead>Lead Value (₹)</TableHead>
-                  <TableHead>Lead Status</TableHead>
-                  <TableHead>Validation File ID</TableHead>
-                  <TableHead>Created At</TableHead>
+                  <TableHead>Lead ID</TableHead>
+                  <TableHead>Final Work Completion Date</TableHead>
+                  <TableHead>Revisied Work Completion Date</TableHead>
+                  <TableHead>Original Work Completion Date</TableHead>
+                  <TableHead>Unit Basis Commercial</TableHead>
+                  <TableHead>Project Incharge Approval</TableHead>
+                  <TableHead>Project Incharge Approval Date</TableHead>
+                  <TableHead>Client Incharge Approval</TableHead>
+                  <TableHead>Client Incharge Approval Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedData.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedLeads.includes(lead.id)}
-                        onCheckedChange={(checked) => handleSelectLead(lead.id, checked as boolean)}
-                      />
+                {paginatedData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center py-12">
+                      <p className="text-muted-foreground text-lg">
+                        {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
+                          ? "No records found for the selected date range."
+                          : (customerId && projectId 
+                            ? "No leads found for this project." 
+                            : "No leads found.")
+                        }
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
+                          ? "Try adjusting your date range or clear filters to see all records."
+                          : (customerId && projectId 
+                            ? "This customer-project combination has no leads yet." 
+                            : "Adjust your filters or check back later.")
+                        }
+                      </p>
                     </TableCell>
-                    <TableCell className="font-medium">{lead.leadId}</TableCell>
-                    <TableCell>{lead.projectId}</TableCell>
-                    <TableCell>{lead.projectName}</TableCell>
-                    <TableCell>{lead.customerId}</TableCell>
-                    <TableCell>{lead.customerName}</TableCell>
-                    <TableCell>{lead.leadName}</TableCell>
-                    <TableCell className="font-semibold">₹{lead.leadValue.toLocaleString('en-IN')}</TableCell>
-                    <TableCell>{getStatusBadge(lead.leadStatus)}</TableCell>
-                    <TableCell>{lead.validationFileId || '-'}</TableCell>
-                    <TableCell>{lead.createdAt}</TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  paginatedData.map((lead) => {
+                    const statusBadge = getStatusBadge(lead.lead_status);
+                    return (
+                      <TableRow key={lead.lead_id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedLeads.includes(lead.lead_id)}
+                            onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{lead.project_id || '—'}</TableCell>
+                        <TableCell className="font-medium">{lead.lead_name || '—'}</TableCell>
+                        <TableCell className="font-mono text-sm">{lead.lead_id}</TableCell>
+                        <TableCell>{formatDate((lead as any).final_work_completion_date)}</TableCell>
+                        <TableCell>{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
+                        <TableCell>{formatDate((lead as any).original_work_completion_date)}</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency((lead as any).unit_basis_commercial)}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant}
+                            className={statusBadge.className}
+                          >
+                            {(lead as any).project_incharge_approval || lead.lead_status || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant}
+                            className={statusBadge.className}
+                          >
+                            {(lead as any).client_incharge_approval || lead.lead_status || '—'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
@@ -252,6 +418,8 @@ const LeadsSchema = () => {
               </Button>
             </div>
           </div>
+            </>
+          )}
         </div>
       </main>
     </div>

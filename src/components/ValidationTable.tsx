@@ -1,21 +1,24 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, X } from "lucide-react";
-import { ValidationFile } from "@/lib/mockData";
+import type { Validation } from "@/lib/supabase";
+import { formatRevenueMonth, formatCurrency, formatDate, getStatusBadge } from "@/lib/supabase";
 
 interface ValidationTableProps {
-  data: ValidationFile[];
+  data: Validation[];
   onViewLeads?: () => void;
 }
 
-type SortField = keyof ValidationFile;
+type SortField = keyof Validation;
 type SortOrder = 'asc' | 'desc';
 
 const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
+  const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('id');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,10 +40,10 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
 
   const filteredAndSortedData = useMemo(() => {
     let filtered = data.filter(item => {
-      const matchesCustomer = !customerFilter || item.customerName.toLowerCase().includes(customerFilter.toLowerCase());
-      const matchesProject = !projectFilter || item.projectName.toLowerCase().includes(projectFilter.toLowerCase());
-      const matchesStatus = !statusFilter || item.validationStatus === statusFilter;
-      const matchesMonth = !monthFilter || item.revenueMonth.includes(monthFilter);
+      const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
+      const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
+      const matchesStatus = !statusFilter || item.validation_status === statusFilter;
+      const matchesMonth = !monthFilter || (item.rev_month && item.rev_month.includes(monthFilter));
       
       return matchesCustomer && matchesProject && matchesStatus && matchesMonth;
     });
@@ -81,6 +84,31 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       'Rejected': 'destructive'
     };
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+  };
+
+  // ✅ Format Revenue Month from YYYY-MM to MMM YYYY
+  const formatRevenueMonth = (revenueMonth: string) => {
+    if (!revenueMonth || revenueMonth.trim() === '') {
+      return '—';
+    }
+    
+    try {
+      // Convert YYYY-MM format to Date object (add day 01 for valid date)
+      const date = new Date(`${revenueMonth}-01`);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return '—';
+      }
+      
+      // Format to MMM YYYY (e.g., "Jan 2025", "Sep 2024")
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      return '—';
+    }
   };
 
   const clearFilters = () => {
@@ -134,15 +162,9 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
           </Button>
         </div>
         
-        {onViewLeads && (
-          <Button 
-            onClick={onViewLeads}
-            className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            View All Leads
-          </Button>
-        )}
+        <div className="text-sm text-muted-foreground">
+          Click "View Leads" on any row to see project-specific leads
+        </div>
       </div>
 
       <div className="rounded-lg border bg-card overflow-x-auto">
@@ -151,38 +173,38 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             <TableRow>
               <TableHead className="w-[50px]">Sl No</TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validationFileId')} className="h-8 px-2">
-                  Validation File ID <SortIcon field="validationFileId" />
+                <Button variant="ghost" onClick={() => handleSort('validation_file_id')} className="h-8 px-2">
+                  Validation File ID <SortIcon field="validation_file_id" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('customerName')} className="h-8 px-2">
-                  Customer Name <SortIcon field="customerName" />
+                <Button variant="ghost" onClick={() => handleSort('customer_name')} className="h-8 px-2">
+                  Customer Name <SortIcon field="customer_name" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('customerId')} className="h-8 px-2">
-                  Customer ID <SortIcon field="customerId" />
+                <Button variant="ghost" onClick={() => handleSort('customer_id')} className="h-8 px-2">
+                  Customer ID <SortIcon field="customer_id" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('projectName')} className="h-8 px-2">
-                  Project Name <SortIcon field="projectName" />
+                <Button variant="ghost" onClick={() => handleSort('project_name')} className="h-8 px-2">
+                  Project Name <SortIcon field="project_name" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('projectId')} className="h-8 px-2">
-                  Project ID <SortIcon field="projectId" />
+                <Button variant="ghost" onClick={() => handleSort('project_id')} className="h-8 px-2">
+                  Project ID <SortIcon field="project_id" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('revenueMonth')} className="h-8 px-2">
-                  Revenue Month <SortIcon field="revenueMonth" />
+                <Button variant="ghost" onClick={() => handleSort('rev_month')} className="h-8 px-2">
+                  Revenue Month <SortIcon field="rev_month" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validationStatus')} className="h-8 px-2">
-                  Status <SortIcon field="validationStatus" />
+                <Button variant="ghost" onClick={() => handleSort('validation_status')} className="h-8 px-2">
+                  Status <SortIcon field="validation_status" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -191,25 +213,44 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validationApprovalAt')} className="h-8 px-2">
-                  Approval Date <SortIcon field="validationApprovalAt" />
+                <Button variant="ghost" onClick={() => handleSort('validation_approval_at')} className="h-8 px-2">
+                  Approval Date <SortIcon field="validation_approval_at" />
                 </Button>
               </TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
-              <TableRow key={row.id}>
-                <TableCell>{startIndex + index + 1}</TableCell>
-                <TableCell className="font-medium">{row.validationFileId}</TableCell>
-                <TableCell>{row.customerName}</TableCell>
-                <TableCell>{row.customerId}</TableCell>
-                <TableCell>{row.projectName}</TableCell>
-                <TableCell>{row.projectId}</TableCell>
-                <TableCell>{row.revenueMonth}</TableCell>
-                <TableCell>{getStatusBadge(row.validationStatus)}</TableCell>
-                <TableCell className="font-semibold">₹{row.revenue.toLocaleString('en-IN')}</TableCell>
-                <TableCell>{row.validationApprovalAt}</TableCell>
+              <TableRow key={row.validation_file_id}>
+                <TableCell>{row.sl_no}</TableCell>
+                <TableCell className="font-medium">{row.validation_file_id}</TableCell>
+                <TableCell>{row.customer_name || '—'}</TableCell>
+                <TableCell>{row.customer_id || '—'}</TableCell>
+                <TableCell>{row.project_name || '—'}</TableCell>
+                <TableCell>{row.project_id || '—'}</TableCell>
+                <TableCell>{formatRevenueMonth(row.rev_month)}</TableCell>
+                <TableCell>
+                  <Badge 
+                    variant={getStatusBadge(row.validation_status).variant}
+                    className={getStatusBadge(row.validation_status).className}
+                  >
+                    {row.validation_status || '—'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-semibold">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell>{formatDate(row.validation_approval_at)}</TableCell>
+                <TableCell className="text-center">
+                  <Button
+                    onClick={() => navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}`)}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Leads
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

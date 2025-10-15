@@ -1,3 +1,6 @@
+/* Import responsive table styles */
+@import './styles/responsive-tables.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -13,19 +13,18 @@ export interface ValidationFile {
 }
 
 export interface Lead {
-  id: string;
-  leadId: string;
-  projectId: string;
-  projectName: string;
-  customerId: string;
-  customerName: string;
-  leadName: string;
-  leadValue: number;
-  leadStatus: 'Pending' | 'Approved' | 'Rejected';
-  validationFileId: string;
-  leadFileUrl: string;
-  createdAt: string;
-  revenueMonth: string;
+  lead_id: string;
+  project_id: string;
+  project_name: string;
+  final_work_completion_date: string | null;
+  revisied_work_completion_date: string | null;
+  original_work_completion_date: string | null;
+  unit_basis_commercial: number | null;
+  project_incharge_approval: 'Approved' | 'Pending' | 'Rejected';
+  project_incharge_approval_date: string | null;
+  client_incharge_approval: 'Approved' | 'Pending' | 'Rejected';
+  client_incharge_approval_date: string | null;
+  created_at: string;
 }
 
 export interface ProjectData {
@@ -174,80 +173,89 @@ export const mockValidationFiles: ValidationFile[] = [
 
 export const mockLeads: Lead[] = [
   {
-    id: '1',
-    leadId: 'LEAD-001',
-    projectId: 'PROJ-001',
-    projectName: 'Cloud Migration',
-    customerId: 'CUST-001',
-    customerName: 'Tech Solutions Inc',
-    leadName: 'AWS Infrastructure Setup',
-    leadValue: 450000,
-    leadStatus: 'Approved',
-    validationFileId: 'VF-2025-001',
-    leadFileUrl: '/files/lead-001.pdf',
-    createdAt: '2024-12-01',
-    revenueMonth: '2025-01'
+    lead_id: 'LEAD-001',
+    project_id: 'PROJ-001',
+    project_name: 'Cloud Migration',
+    final_work_completion_date: '15-01-2025',
+    revisied_work_completion_date: '20-01-2025',
+    original_work_completion_date: '10-01-2025',
+    unit_basis_commercial: 450000.00,
+    project_incharge_approval: 'Approved',
+    project_incharge_approval_date: '22-01-2025',
+    client_incharge_approval: 'Approved',
+    client_incharge_approval_date: '25-01-2025',
+    created_at: '2024-12-01'
   },
   {
-    id: '2',
-    leadId: 'LEAD-002',
-    projectId: 'PROJ-002',
-    projectName: 'Mobile App Development',
-    customerId: 'CUST-002',
-    customerName: 'Digital Ventures Ltd',
-    leadName: 'iOS & Android App',
-    leadValue: 320000,
-    leadStatus: 'Pending',
-    validationFileId: 'VF-2025-002',
-    leadFileUrl: '/files/lead-002.pdf',
-    createdAt: '2024-12-05',
-    revenueMonth: '2025-01'
+    lead_id: 'LEAD-002',
+    project_id: 'PROJ-002',
+    project_name: 'Mobile App Development',
+    final_work_completion_date: null,
+    revisied_work_completion_date: '05-02-2025',
+    original_work_completion_date: '01-02-2025',
+    unit_basis_commercial: 320000.00,
+    project_incharge_approval: 'Pending',
+    project_incharge_approval_date: null,
+    client_incharge_approval: 'Pending',
+    client_incharge_approval_date: null,
+    created_at: '2024-12-05'
   },
   {
-    id: '3',
-    leadId: 'LEAD-003',
-    projectId: 'PROJ-003',
-    projectName: 'ERP Implementation',
-    customerId: 'CUST-003',
-    customerName: 'Enterprise Systems Co',
-    leadName: 'SAP Integration',
-    leadValue: 680000,
-    leadStatus: 'Approved',
-    validationFileId: 'VF-2025-003',
-    leadFileUrl: '/files/lead-003.pdf',
-    createdAt: '2024-11-20',
-    revenueMonth: '2024-12'
+    lead_id: 'LEAD-003',
+    project_id: 'PROJ-003',
+    project_name: 'ERP Implementation',
+    final_work_completion_date: '28-12-2024',
+    revisied_work_completion_date: '30-12-2024',
+    original_work_completion_date: '25-12-2024',
+    unit_basis_commercial: 680000.00,
+    project_incharge_approval: 'Approved',
+    project_incharge_approval_date: '02-01-2025',
+    client_incharge_approval: 'Approved',
+    client_incharge_approval_date: '05-01-2025',
+    created_at: '2024-11-20'
   },
   {
-    id: '4',
-    leadId: 'LEAD-004',
-    projectId: 'PROJ-011',
-    projectName: 'Marketing Automation',
-    customerId: 'CUST-001',
-    customerName: 'Tech Solutions Inc',
-    leadName: 'HubSpot Setup',
-    leadValue: 180000,
-    leadStatus: 'Pending',
-    validationFileId: '',
-    leadFileUrl: '/files/lead-004.pdf',
-    createdAt: '2025-01-10',
-    revenueMonth: '2025-01'
+    lead_id: 'LEAD-004',
+    project_id: 'PROJ-001',
+    project_name: 'Cloud Migration',
+    final_work_completion_date: null,
+    revisied_work_completion_date: null,
+    original_work_completion_date: '15-02-2025',
+    unit_basis_commercial: 400000.00,
+    project_incharge_approval: 'Rejected',
+    project_incharge_approval_date: '10-01-2025',
+    client_incharge_approval: 'Pending',
+    client_incharge_approval_date: null,
+    created_at: '2024-11-15'
   },
   {
-    id: '5',
-    leadId: 'LEAD-005',
-    projectId: 'PROJ-012',
-    projectName: 'DevOps Transformation',
-    customerId: 'CUST-004',
-    customerName: 'Innovation Labs',
-    leadName: 'CI/CD Pipeline',
-    leadValue: 290000,
-    leadStatus: 'Rejected',
-    validationFileId: '',
-    leadFileUrl: '/files/lead-005.pdf',
-    createdAt: '2025-01-12',
-    revenueMonth: '2025-01'
+    lead_id: 'LEAD-005',
+    project_id: 'PROJ-010',
+    project_name: 'API Gateway',
+    final_work_completion_date: '10-11-2024',
+    revisied_work_completion_date: '12-11-2024',
+    original_work_completion_date: '08-11-2024',
+    unit_basis_commercial: 180000.00,
+    project_incharge_approval: 'Approved',
+    project_incharge_approval_date: '15-11-2024',
+    client_incharge_approval: 'Rejected',
+    client_incharge_approval_date: '18-11-2024',
+    created_at: '2024-10-30'
   },
+  {
+    lead_id: 'LEAD-006',
+    project_id: 'PROJ-001',
+    project_name: 'Cloud Migration',
+    final_work_completion_date: null,
+    revisied_work_completion_date: null,
+    original_work_completion_date: '20-02-2025',
+    unit_basis_commercial: 250000.00,
+    project_incharge_approval: 'Pending',
+    project_incharge_approval_date: null,
+    client_incharge_approval: 'Pending',
+    client_incharge_approval_date: null,
+    created_at: '2024-12-10'
+  }
 ];
 
 export const mockProjectData: ProjectData[] = [
