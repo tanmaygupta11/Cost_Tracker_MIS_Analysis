@@ -1,6 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+// ✅ Filter, paginate, and update mock dataset in React state
+// ✅ Handle bulk approve/reject and download actions locally
+// ✅ Reuse Finance Team table styles and components
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,131 +10,61 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import Navigation from "@/components/Navigation";
-import { ArrowLeft, ArrowUpDown, Check, X, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-type ValidationStatus = 'Pending' | 'Approved' | 'Rejected';
-
-interface Validation {
-  sl_no: number;
-  validation_file_id: string;
-  customer_name: string;
-  customer_id: string;
-  project_name: string;
-  project_id: string;
-  rev_month: string;
-  validation_status: ValidationStatus;
-  revenue: number;
-  validation_approval_at: string | null;
-}
-
-type SortField = 'sl_no' | 'validation_file_id' | 'project_name' | 'rev_month' | 'validation_status' | 'revenue';
+import { validationFiles as initialData, type ValidationFile } from "@/lib/clientMockData";
 
 const ClientValidationTable = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [data, setData] = useState<Validation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [customerName, setCustomerName] = useState("");
-  const [projectFilter, setProjectFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState("");
-  const [sortField, setSortField] = useState<SortField>('sl_no');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
+  
+  // ✅ Local state management for mock data
+  const [data, setData] = useState<ValidationFile[]>(initialData);
+  const [projectFilter, setProjectFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [monthFilter, setMonthFilter] = useState("ALL");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [updating, setUpdating] = useState(false);
-  const rowsPerPage = 5;
 
-  useEffect(() => {
-    fetchValidations();
-  }, []);
+  // Get unique project names for filter dropdown
+  const uniqueProjects = useMemo(() => {
+    const projects = new Set(data.map(v => v.project_name));
+    return Array.from(projects).sort();
+  }, [data]);
 
-  const fetchValidations = async () => {
-    try {
-      setLoading(true);
-      const { data: validations, error } = await supabase
-        .from('validations')
-        .select('*')
-        .order('sl_no', { ascending: true });
+  // Get unique months for filter dropdown
+  const uniqueMonths = useMemo(() => {
+    const months = new Set(data.map(v => v.revenue_month));
+    return Array.from(months).sort().reverse();
+  }, [data]);
 
-      if (error) throw error;
-
-      if (validations && validations.length > 0) {
-        setCustomerName(validations[0].customer_name || "");
-      }
-
-      setData(validations || []);
-    } catch (error) {
-      console.error('Error fetching validations:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load validations. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
-  };
-
-  const filteredAndSortedData = useMemo(() => {
-    let filtered = data.filter((item) => {
-      const matchesProject = !projectFilter || item.project_name?.toLowerCase().includes(projectFilter.toLowerCase());
-      const matchesStatus = !statusFilter || item.validation_status === statusFilter;
-      const matchesMonth = !monthFilter || item.rev_month?.includes(monthFilter);
+  // ✅ Filter data based on selected filters - Show ALL matching records (no pagination)
+  const filteredData = useMemo(() => {
+    return data.filter((item) => {
+      const matchesProject = !projectFilter || projectFilter === "ALL" || item.project_name === projectFilter;
+      const matchesStatus = !statusFilter || statusFilter === "ALL" || item.validation_status === statusFilter;
+      const matchesMonth = !monthFilter || monthFilter === "ALL" || item.revenue_month === monthFilter;
       return matchesProject && matchesStatus && matchesMonth;
     });
+  }, [data, projectFilter, statusFilter, monthFilter]);
 
-    filtered.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-
-      if (aVal === null || aVal === undefined) return 1;
-      if (bVal === null || bVal === undefined) return -1;
-
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [data, projectFilter, statusFilter, monthFilter, sortField, sortOrder]);
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    return filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredAndSortedData, currentPage]);
-
-  const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage);
-
+  // ✅ Clear all filters
   const clearFilters = () => {
-    setProjectFilter("");
-    setStatusFilter("");
-    setMonthFilter("");
-    setCurrentPage(1);
+    setProjectFilter("ALL");
+    setStatusFilter("ALL");
+    setMonthFilter("ALL");
     setSelectedRows(new Set());
   };
 
+  // ✅ Handle select all (all filtered records)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(paginatedData.map(v => v.validation_file_id)));
+      setSelectedRows(new Set(filteredData.map(v => v.validation_file_id)));
     } else {
       setSelectedRows(new Set());
     }
   };
 
+  // ✅ Handle individual row selection
   const handleSelectRow = (id: string, checked: boolean) => {
     const newSelected = new Set(selectedRows);
     if (checked) {
@@ -143,48 +75,67 @@ const ClientValidationTable = () => {
     setSelectedRows(newSelected);
   };
 
-  const handleBulkUpdate = async (status: ValidationStatus) => {
+  // ✅ Handle bulk approve action (local state update)
+  const handleBulkApprove = () => {
     if (selectedRows.size === 0) return;
 
-    setUpdating(true);
-    try {
-      const updates = Array.from(selectedRows).map(id => 
-        supabase
-          .from('validations')
-          .update({ validation_status: status })
-          .eq('validation_file_id', id)
-      );
+    const updatedData = data.map(item => {
+      if (selectedRows.has(item.validation_file_id)) {
+        return {
+          ...item,
+          validation_status: 'Approved' as const,
+          validation_approval_at: item.validation_approval_at || new Date().toISOString().split('T')[0]
+        };
+      }
+      return item;
+    });
 
-      await Promise.all(updates);
-
-      toast({
-        title: "Success",
-        description: `${selectedRows.size} validation(s) ${status.toLowerCase()}.`,
-      });
-
-      setSelectedRows(new Set());
-      await fetchValidations();
-    } catch (error) {
-      console.error('Error updating validations:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update validations. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleBulkDownload = () => {
+    setData(updatedData);
+    setSelectedRows(new Set());
+    
     toast({
-      title: "Download Started",
-      description: `Downloading ${selectedRows.size} file(s)...`,
+      title: "✅ Approved Successfully",
+      description: `${selectedRows.size} validation(s) have been approved.`,
     });
   };
 
-  const getStatusBadge = (status: ValidationStatus) => {
-    const variants: Record<ValidationStatus, "default" | "secondary" | "destructive"> = {
+  // ✅ Handle bulk reject action (local state update)
+  const handleBulkReject = () => {
+    if (selectedRows.size === 0) return;
+
+    const updatedData = data.map(item => {
+      if (selectedRows.has(item.validation_file_id)) {
+        return {
+          ...item,
+          validation_status: 'Rejected' as const,
+          validation_approval_at: item.validation_approval_at || new Date().toISOString().split('T')[0]
+        };
+      }
+      return item;
+    });
+
+    setData(updatedData);
+    setSelectedRows(new Set());
+    
+    toast({
+      title: "❌ Rejected Successfully",
+      description: `${selectedRows.size} validation(s) have been rejected.`,
+      variant: "destructive",
+    });
+  };
+
+  // ✅ Handle bulk download (mock action)
+  const handleBulkDownload = () => {
+    if (selectedRows.size === 0) return;
+
+    toast({
+      title: "🗂 Download Started",
+      description: `Downloading ${selectedRows.size} validation file(s)...`,
+    });
+  };
+
+  const getStatusBadge = (status: ValidationFile['validation_status']) => {
+    const variants: Record<ValidationFile['validation_status'], "default" | "secondary" | "destructive"> = {
       Approved: "default",
       Pending: "secondary",
       Rejected: "destructive",
@@ -192,85 +143,102 @@ const ClientValidationTable = () => {
     return <Badge variant={variants[status]}>{status}</Badge>;
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => (
-    <ArrowUpDown className={`ml-2 h-4 w-4 inline ${sortField === field ? 'text-primary' : ''}`} />
-  );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="container mx-auto p-8 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="container mx-auto p-8">
+      <Navigation userRole="client" />
+      
+      <div className="container mx-auto px-4 pt-20 pb-8">
+        {/* Header with Back Button */}
         <div className="flex items-center gap-4 mb-6">
           <Button
             variant="outline"
             onClick={() => navigate("/client-dashboard")}
-            className="gap-2"
+            className="gap-2 rounded-xl"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            Back
           </Button>
-          <h1 className="text-3xl font-bold">My Validations</h1>
+          <div>
+            <h1 className="text-3xl font-bold">All Validation Files</h1>
+            <p className="text-muted-foreground">Manage and track all your validations</p>
+          </div>
         </div>
 
-        {data.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No validations found for your account.</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-4 mb-6">
-              <Input
-                placeholder="Customer Name"
-                value={customerName}
-                disabled
-                className="w-64 bg-muted"
-              />
-              <Input
-                placeholder="Project Name"
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
-                className="w-64"
-              />
-              <Input
-                placeholder="Revenue Month (YYYY-MM)"
-                value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-                className="w-64"
-              />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Status" />
+        {/* Filters Section */}
+        <div className="bg-card rounded-xl border border-border p-6 mb-6">
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Project Name</label>
+              <Select value={projectFilter || "ALL"} onValueChange={setProjectFilter}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">All Projects</SelectItem>
+                  {uniqueProjects.map(project => (
+                    <SelectItem key={project} value={project}>{project}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Status</label>
+              <Select value={statusFilter || "ALL"} onValueChange={setStatusFilter}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
                   <SelectItem value="Approved">Approved</SelectItem>
                   <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="Rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={clearFilters}>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Month</label>
+              <Select value={monthFilter || "ALL"} onValueChange={setMonthFilter}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="All Months" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Months</SelectItem>
+                  {uniqueMonths.map(month => (
+                    <SelectItem key={month} value={month}>{month}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="rounded-xl"
+              >
                 Clear Filters
               </Button>
             </div>
+          </div>
 
-            {selectedRows.size > 0 && (
-              <div className="flex gap-4 mb-4 p-4 bg-muted rounded-lg">
-                <span className="font-medium">{selectedRows.size} selected</span>
+          {/* Summary */}
+          <div className="text-sm text-muted-foreground">
+            Showing {filteredData.length} of {data.length} validations
+          </div>
+        </div>
+
+        {/* Bulk Actions Bar (appears when rows are selected) */}
+        {selectedRows.size > 0 && (
+          <div className="bg-primary/10 rounded-xl border border-primary/20 p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-primary">{selectedRows.size} validation(s) selected</span>
+              <div className="flex gap-2">
                 <Button
                   size="sm"
-                  onClick={() => handleBulkUpdate('Approved')}
-                  disabled={updating}
-                  className="gap-2"
+                  onClick={handleBulkApprove}
+                  className="gap-2 rounded-xl bg-green-600 hover:bg-green-700"
                 >
                   <Check className="h-4 w-4" />
                   Approve Selected
@@ -278,9 +246,8 @@ const ClientValidationTable = () => {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => handleBulkUpdate('Rejected')}
-                  disabled={updating}
-                  className="gap-2"
+                  onClick={handleBulkReject}
+                  className="gap-2 rounded-xl"
                 >
                   <X className="h-4 w-4" />
                   Reject Selected
@@ -289,108 +256,82 @@ const ClientValidationTable = () => {
                   size="sm"
                   variant="outline"
                   onClick={handleBulkDownload}
-                  className="gap-2"
+                  className="gap-2 rounded-xl"
                 >
                   <Download className="h-4 w-4" />
                   Download Selected
                 </Button>
               </div>
-            )}
+            </div>
+          </div>
+        )}
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
+        {/* Validation Table */}
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={filteredData.length > 0 && filteredData.every(v => selectedRows.has(v.validation_file_id))}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+                <TableHead>Sl No</TableHead>
+                <TableHead>Validation File ID</TableHead>
+                <TableHead>Customer Name</TableHead>
+                <TableHead>Customer ID</TableHead>
+                <TableHead>Project Name</TableHead>
+                <TableHead>Project ID</TableHead>
+                <TableHead>Revenue Month</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Revenue (₹)</TableHead>
+                <TableHead>Approval Date</TableHead>
+              </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={paginatedData.length > 0 && paginatedData.every(v => selectedRows.has(v.validation_file_id))}
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </TableHead>
-                    <TableHead onClick={() => handleSort('sl_no')} className="cursor-pointer">
-                      Sl No <SortIcon field="sl_no" />
-                    </TableHead>
-                    <TableHead onClick={() => handleSort('validation_file_id')} className="cursor-pointer">
-                      Validation File ID <SortIcon field="validation_file_id" />
-                    </TableHead>
-                    <TableHead>Customer Name</TableHead>
-                    <TableHead>Customer ID</TableHead>
-                    <TableHead onClick={() => handleSort('project_name')} className="cursor-pointer">
-                      Project Name <SortIcon field="project_name" />
-                    </TableHead>
-                    <TableHead>Project ID</TableHead>
-                    <TableHead onClick={() => handleSort('rev_month')} className="cursor-pointer">
-                      Revenue Month <SortIcon field="rev_month" />
-                    </TableHead>
-                    <TableHead onClick={() => handleSort('validation_status')} className="cursor-pointer">
-                      Status <SortIcon field="validation_status" />
-                    </TableHead>
-                    <TableHead onClick={() => handleSort('revenue')} className="cursor-pointer">
-                      Revenue (₹) <SortIcon field="revenue" />
-                    </TableHead>
-                    <TableHead>Approval Date</TableHead>
+                    <TableCell colSpan={11} className="text-center py-12">
+                      <p className="text-muted-foreground text-lg">No validations found for your account.</p>
+                      <p className="text-sm text-muted-foreground mt-2">Check back later for updates.</p>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedData.map((validation) => (
-                    <TableRow key={validation.validation_file_id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedRows.has(validation.validation_file_id)}
-                          onCheckedChange={(checked) => handleSelectRow(validation.validation_file_id, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell>{validation.sl_no}</TableCell>
-                      <TableCell className="font-mono text-sm">{validation.validation_file_id}</TableCell>
-                      <TableCell>{validation.customer_name}</TableCell>
-                      <TableCell className="font-mono text-sm">{validation.customer_id}</TableCell>
-                      <TableCell>{validation.project_name}</TableCell>
-                      <TableCell className="font-mono text-sm">{validation.project_id}</TableCell>
-                      <TableCell>{validation.rev_month}</TableCell>
-                      <TableCell>{getStatusBadge(validation.validation_status)}</TableCell>
-                      <TableCell>₹{validation.revenue?.toLocaleString()}</TableCell>
-                      <TableCell>
-                        {validation.validation_approval_at
-                          ? new Date(validation.validation_approval_at).toLocaleDateString()
-                          : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ) : (
+                  filteredData.map((validation) => (
+                  <TableRow key={validation.validation_file_id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedRows.has(validation.validation_file_id)}
+                        onCheckedChange={(checked) => handleSelectRow(validation.validation_file_id, checked as boolean)}
+                      />
+                    </TableCell>
+                    <TableCell>{validation.sl_no}</TableCell>
+                    <TableCell className="font-mono text-sm">{validation.validation_file_id}</TableCell>
+                    <TableCell>{validation.customer_name}</TableCell>
+                    <TableCell className="font-mono text-sm">{validation.customer_id}</TableCell>
+                    <TableCell className="font-medium">{validation.project_name}</TableCell>
+                    <TableCell className="font-mono text-sm">{validation.project_id}</TableCell>
+                    <TableCell>{validation.revenue_month}</TableCell>
+                    <TableCell>{getStatusBadge(validation.validation_status)}</TableCell>
+                    <TableCell className="font-semibold">
+                      ₹{validation.revenue.toLocaleString('en-IN')}
+                    </TableCell>
+                    <TableCell>
+                      {validation.validation_approval_at || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
+        {/* Summary - No pagination, show all records */}
+        {filteredData.length > 0 && (
+          <div className="text-center text-sm text-muted-foreground mt-6">
+            Showing {filteredData.length} of {data.length} validations
+          </div>
         )}
       </div>
     </div>

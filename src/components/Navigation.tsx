@@ -18,8 +18,8 @@ const Navigation = ({ userRole }: NavigationProps) => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <img 
-            src="/lovable-uploads/f6c3dc2e-d8a5-43f0-9c0c-34da71be0ff2.png" 
-            alt="Company Logo" 
+            src="/images/tablogo.png" 
+            alt="Revenue Tracker Logo" 
             className="h-8 w-auto"
           />
         </div>
