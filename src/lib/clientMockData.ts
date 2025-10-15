@@ -138,6 +138,43 @@ export const validationFiles: ValidationFile[] = [
     revenue: 280000,
     validation_approval_at: "2024-07-30",
   },
+  // ROX customer data for client@demo.com login
+  {
+    sl_no: 8,
+    validation_file_id: "VAL-008",
+    customer_name: "ROX",
+    customer_id: "ROX-CUST-001",
+    project_name: "ROX Project Alpha",
+    project_id: "ROX-PROJ-001",
+    revenue_month: "2025-01",
+    validation_status: "Approved",
+    revenue: 650000,
+    validation_approval_at: "2025-01-10",
+  },
+  {
+    sl_no: 9,
+    validation_file_id: "VAL-009",
+    customer_name: "ROX",
+    customer_id: "ROX-CUST-001",
+    project_name: "ROX Project Beta",
+    project_id: "ROX-PROJ-002",
+    revenue_month: "2024-12",
+    validation_status: "Pending",
+    revenue: 420000,
+    validation_approval_at: null,
+  },
+  {
+    sl_no: 10,
+    validation_file_id: "VAL-010",
+    customer_name: "ROX",
+    customer_id: "ROX-CUST-001",
+    project_name: "ROX Project Gamma",
+    project_id: "ROX-PROJ-003",
+    revenue_month: "2024-11",
+    validation_status: "Approved",
+    revenue: 380000,
+    validation_approval_at: "2024-11-25",
+  },
 ];
 
 export const leads: Lead[] = [

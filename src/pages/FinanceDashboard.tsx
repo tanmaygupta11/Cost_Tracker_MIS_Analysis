@@ -47,11 +47,35 @@ const generateRevenueShare = (validations: Validation[]) => {
 };
 
 const formatMonthForChart = (monthString: string) => {
+  if (!monthString || monthString.trim() === '') {
+    return 'Unknown';
+  }
   try {
-    const date = new Date(`${monthString}-01`);
+    // Handle both YYYY-MM-DD and YYYY-MM formats
+    let dateStr = monthString;
+    
+    // If it's in YYYY-MM format, add -01 to make it a valid date
+    if (monthString.match(/^\d{4}-\d{2}$/)) {
+      dateStr = `${monthString}-01`;
+    }
+    
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      // Try to extract month from string if possible
+      const monthMatch = monthString.match(/(\d{4})-(\d{2})/);
+      if (monthMatch) {
+        const [, year, month] = monthMatch;
+        const fallbackDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        if (!isNaN(fallbackDate.getTime())) {
+          return fallbackDate.toLocaleDateString('en-US', { month: 'short' });
+        }
+      }
+      return 'Unknown';
+    }
+    
     return date.toLocaleDateString('en-US', { month: 'short' });
-  } catch {
-    return monthString;
+  } catch (error) {
+    return 'Unknown';
   }
 };
 

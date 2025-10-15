@@ -1,7 +1,7 @@
 // ✅ Filter, paginate, and update mock dataset in React state
 // ✅ Handle bulk approve/reject and download actions locally
 // ✅ Reuse Finance Team table styles and components
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,17 +13,41 @@ import Navigation from "@/components/Navigation";
 import { ArrowLeft, Check, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { validationFiles as initialData, type ValidationFile } from "@/lib/clientMockData";
+import { useClient } from "@/contexts/ClientContext";
 
 const ClientValidationTable = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { customerId, customerName } = useClient();
   
-  // ✅ Local state management for mock data
-  const [data, setData] = useState<ValidationFile[]>(initialData);
+  // ✅ Filter initial data based on client context
+  const getFilteredInitialData = () => {
+    let filtered = initialData;
+    
+    // If logged in with client@demo.com, filter to show only ROX customer data
+    if (customerName === 'ROX') {
+      filtered = initialData.filter(item => 
+        item.customer_name && item.customer_name.toLowerCase().includes('rox')
+      );
+    } else if (customerId) {
+      // For other clients, filter by customer_id
+      filtered = initialData.filter(item => item.customer_id === customerId);
+    }
+    
+    return filtered;
+  };
+  
+  // ✅ Local state management for mock data with client filtering
+  const [data, setData] = useState<ValidationFile[]>(getFilteredInitialData());
   const [projectFilter, setProjectFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [monthFilter, setMonthFilter] = useState("ALL");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  // Update data when client context changes
+  useEffect(() => {
+    setData(getFilteredInitialData());
+  }, [customerId, customerName]);
 
   // Get unique project names for filter dropdown
   const uniqueProjects = useMemo(() => {

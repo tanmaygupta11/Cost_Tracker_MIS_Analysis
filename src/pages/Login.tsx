@@ -52,7 +52,8 @@ const Login = () => {
       }
     } else if (selectedRole === 'client') {
       if (email === 'client@demo.com' && password === 'demo123') {
-        setClient('CUST-001', 'Tech Solutions Inc');
+        // Special case: client@demo.com should see only ROX customer data
+        setClient('ROX-CUST-001', 'ROX');
         navigate('/client-dashboard');
       } else {
         setError('Invalid credentials. Please try again.');

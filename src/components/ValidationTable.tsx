@@ -24,7 +24,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [customerFilter, setCustomerFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(' ');
   const [monthFilter, setMonthFilter] = useState('');
   
   const rowsPerPage = 5;
@@ -42,7 +42,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     let filtered = data.filter(item => {
       const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
       const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
-      const matchesStatus = !statusFilter || item.validation_status === statusFilter;
+      const matchesStatus = !statusFilter || statusFilter === ' ' || item.validation_status === statusFilter;
       const matchesMonth = !monthFilter || (item.rev_month && item.rev_month.includes(monthFilter));
       
       return matchesCustomer && matchesProject && matchesStatus && matchesMonth;
@@ -77,44 +77,11 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
-      'Approved': 'default',
-      'Pending': 'secondary',
-      'Rejected': 'destructive'
-    };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
-  };
-
-  // ✅ Format Revenue Month from YYYY-MM to MMM YYYY
-  const formatRevenueMonth = (revenueMonth: string) => {
-    if (!revenueMonth || revenueMonth.trim() === '') {
-      return '—';
-    }
-    
-    try {
-      // Convert YYYY-MM format to Date object (add day 01 for valid date)
-      const date = new Date(`${revenueMonth}-01`);
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return '—';
-      }
-      
-      // Format to MMM YYYY (e.g., "Jan 2025", "Sep 2024")
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        year: 'numeric' 
-      });
-    } catch (error) {
-      return '—';
-    }
-  };
 
   const clearFilters = () => {
     setCustomerFilter('');
     setProjectFilter('');
-    setStatusFilter('');
+    setStatusFilter(' ');
     setMonthFilter('');
     setCurrentPage(1);
   };
@@ -124,13 +91,13 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex flex-wrap gap-3 flex-1">
           <Input
-            placeholder="Filter by customer..."
+            placeholder="Filter by customer name"
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
             className="max-w-[200px]"
           />
           <Input
-            placeholder="Filter by project..."
+            placeholder="Filter by project name"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
             className="max-w-[200px]"

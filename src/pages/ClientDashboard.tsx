@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, CheckCircle, DollarSign, Eye, FolderOpen, Clock } from "lucide-react";
 import type { Validation } from "@/lib/supabase";
+import { useClient } from "@/contexts/ClientContext";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
@@ -49,16 +50,41 @@ const generateRevenueShare = (validations: Validation[]) => {
 };
 
 const formatMonthForChart = (monthString: string) => {
+  if (!monthString || monthString.trim() === '') {
+    return 'Unknown';
+  }
   try {
-    const date = new Date(`${monthString}-01`);
+    // Handle both YYYY-MM-DD and YYYY-MM formats
+    let dateStr = monthString;
+    
+    // If it's in YYYY-MM format, add -01 to make it a valid date
+    if (monthString.match(/^\d{4}-\d{2}$/)) {
+      dateStr = `${monthString}-01`;
+    }
+    
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      // Try to extract month from string if possible
+      const monthMatch = monthString.match(/(\d{4})-(\d{2})/);
+      if (monthMatch) {
+        const [, year, month] = monthMatch;
+        const fallbackDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        if (!isNaN(fallbackDate.getTime())) {
+          return fallbackDate.toLocaleDateString('en-US', { month: 'short' });
+        }
+      }
+      return 'Unknown';
+    }
+    
     return date.toLocaleDateString('en-US', { month: 'short' });
-  } catch {
-    return monthString;
+  } catch (error) {
+    return 'Unknown';
   }
 };
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
+  const { customerId, customerName } = useClient();
   const [currentPage, setCurrentPage] = useState(1);
   const [validations, setValidations] = useState<Validation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,12 +93,13 @@ const ClientDashboard = () => {
   // Pagination setup
   const recordsPerPage = 5;
   
-  // Fetch validations data from Supabase (filtered by client's customer_id)
+  // Fetch validations data from Supabase (filtered by client's customer)
   useEffect(() => {
     const loadValidations = async () => {
       try {
         setLoading(true);
-        // For now, we'll fetch all validations. In a real app, this would be filtered by the logged-in client's customer_id
+        
+        // Fetch all validations first
         const { data, error } = await fetchValidations();
         
         if (error) {
@@ -81,7 +108,22 @@ const ClientDashboard = () => {
           return;
         }
         
-        setValidations(data || []);
+        // Filter data based on client context
+        let filteredData = data || [];
+        
+        // If logged in with client@demo.com, filter to show only ROX customer data
+        if (customerName === 'ROX') {
+          filteredData = (data || []).filter(validation => 
+            validation.customer_name && validation.customer_name.toLowerCase().includes('rox')
+          );
+        } else if (customerId) {
+          // For other clients, filter by customer_id
+          filteredData = (data || []).filter(validation => 
+            validation.customer_id === customerId
+          );
+        }
+        
+        setValidations(filteredData);
       } catch (err) {
         console.error('Error loading validations:', err);
         setError('Failed to load validation data');
@@ -91,7 +133,7 @@ const ClientDashboard = () => {
     };
     
     loadValidations();
-  }, []);
+  }, [customerId, customerName]);
   
   // Calculate analytics from real data
   const totalProjects = validations.length;

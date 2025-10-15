@@ -43,6 +43,7 @@ export const fetchLeads = async (projectId?: string, filters?: {
   workDateTo?: string;
   clientDateFrom?: string;
   clientDateTo?: string;
+  customerId?: string;
 }) => {
   let query = supabase.from('leads').select('*');
 
@@ -50,12 +51,10 @@ export const fetchLeads = async (projectId?: string, filters?: {
     query = query.eq('project_id', projectId);
   }
 
-  // Note: The current leads table schema doesn't match the requirements exactly
-  // We'll need to adapt the filtering logic based on available columns
-  
   // Order by lead_id since created_at column doesn't exist in the leads table
   return query.order('lead_id', { ascending: true });
 };
+
 
 // Update lead approval status
 export const updateLeadApproval = async (
@@ -109,10 +108,19 @@ export const formatRevenueMonth = (revMonth: string | null) => {
     return '—';
   }
   try {
-    const date = new Date(`${revMonth}-01`);
+    // Handle both YYYY-MM-DD and YYYY-MM formats
+    let dateStr = revMonth;
+    
+    // If it's in YYYY-MM format, add -01 to make it a valid date
+    if (revMonth.match(/^\d{4}-\d{2}$/)) {
+      dateStr = `${revMonth}-01`;
+    }
+    
+    const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       return '—';
     }
+    
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       year: 'numeric' 
