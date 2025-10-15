@@ -14,16 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          customer_id: string
+          customer_name: string
+          customer_since: string | null
+        }
+        Insert: {
+          customer_id?: string
+          customer_name: string
+          customer_since?: string | null
+        }
+        Update: {
+          customer_id?: string
+          customer_name?: string
+          customer_since?: string | null
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          lead_id: string
+          lead_name: string | null
+          lead_status: Database["public"]["Enums"]["lead_status_enum"] | null
+          lead_value: number | null
+          project_id: string | null
+          validation_file_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          lead_id?: string
+          lead_name?: string | null
+          lead_status?: Database["public"]["Enums"]["lead_status_enum"] | null
+          lead_value?: number | null
+          project_id?: string | null
+          validation_file_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          lead_id?: string
+          lead_name?: string | null
+          lead_status?: Database["public"]["Enums"]["lead_status_enum"] | null
+          lead_value?: number | null
+          project_id?: string | null
+          validation_file_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "leads_validation_file_id_fkey"
+            columns: ["validation_file_id"]
+            isOneToOne: false
+            referencedRelation: "validations"
+            referencedColumns: ["validation_file_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["customer_id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          project_customer_id: string | null
+          project_id: string
+          project_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          project_customer_id?: string | null
+          project_id?: string
+          project_name: string
+        }
+        Update: {
+          created_at?: string | null
+          project_customer_id?: string | null
+          project_id?: string
+          project_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_project_customer_id_fkey"
+            columns: ["project_customer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["customer_id"]
+          },
+        ]
+      }
+      validations: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          customer_name: string | null
+          project_id: string | null
+          project_name: string | null
+          rev_month: string | null
+          revenue: number | null
+          sl_no: number
+          validation_approval_at: string | null
+          validation_file_id: string
+          validation_status:
+            | Database["public"]["Enums"]["validation_status_enum"]
+            | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          rev_month?: string | null
+          revenue?: number | null
+          sl_no?: number
+          validation_approval_at?: string | null
+          validation_file_id?: string
+          validation_status?:
+            | Database["public"]["Enums"]["validation_status_enum"]
+            | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          rev_month?: string | null
+          revenue?: number | null
+          sl_no?: number
+          validation_approval_at?: string | null
+          validation_file_id?: string
+          validation_status?:
+            | Database["public"]["Enums"]["validation_status_enum"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "validations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_validation_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      lead_status_enum: "Pending" | "In Review" | "Validated" | "Closed"
+      validation_status_enum: "Pending" | "Approved" | "Rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +347,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      lead_status_enum: ["Pending", "In Review", "Validated", "Closed"],
+      validation_status_enum: ["Pending", "Approved", "Rejected"],
+    },
   },
 } as const
