@@ -8,15 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { mockLeads } from "@/lib/mockData";
-import { Download, ArrowLeft } from "lucide-react";
+import { Download, ArrowLeft, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
   const navigate = useNavigate();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState('');
-  const [clientFilter, setClientFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   
   const rowsPerPage = 10;
@@ -24,12 +25,13 @@ const LeadsSchema = () => {
   const filteredData = useMemo(() => {
     return mockLeads.filter(lead => {
       const matchesProject = !projectFilter || lead.projectName.toLowerCase().includes(projectFilter.toLowerCase());
-      const matchesClient = !clientFilter || lead.customerName.toLowerCase().includes(clientFilter.toLowerCase());
+      const matchesCustomer = !customerFilter || lead.customerName.toLowerCase().includes(customerFilter.toLowerCase());
       const matchesStatus = !statusFilter || lead.leadStatus === statusFilter;
+      const matchesMonth = !monthFilter || lead.revenueMonth.includes(monthFilter);
       
-      return matchesProject && matchesClient && matchesStatus;
+      return matchesProject && matchesCustomer && matchesStatus && matchesMonth;
     });
-  }, [projectFilter, clientFilter, statusFilter]);
+  }, [projectFilter, customerFilter, statusFilter, monthFilter]);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -68,13 +70,21 @@ const LeadsSchema = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-      'New': 'outline',
-      'Qualified': 'secondary',
-      'Converted': 'default',
-      'Lost': 'destructive'
+    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+      'Approved': 'default',
+      'Pending': 'secondary',
+      'Rejected': 'destructive'
     };
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+  };
+
+  const clearFilters = () => {
+    setProjectFilter('');
+    setCustomerFilter('');
+    setStatusFilter('');
+    setMonthFilter('');
+    setSelectedLeads([]);
+    setCurrentPage(1);
   };
 
   return (
@@ -99,15 +109,15 @@ const LeadsSchema = () => {
           <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
               <Input
-                placeholder="Filter by project..."
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
+                placeholder="Filter by customer..."
+                value={customerFilter}
+                onChange={(e) => setCustomerFilter(e.target.value)}
                 className="max-w-[200px]"
               />
               <Input
-                placeholder="Filter by client..."
-                value={clientFilter}
-                onChange={(e) => setClientFilter(e.target.value)}
+                placeholder="Filter by project..."
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
                 className="max-w-[200px]"
               />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -116,12 +126,25 @@ const LeadsSchema = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value=" ">All Status</SelectItem>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Qualified">Qualified</SelectItem>
-                  <SelectItem value="Converted">Converted</SelectItem>
-                  <SelectItem value="Lost">Lost</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
+              <Input
+                placeholder="Month (YYYY-MM)"
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="max-w-[150px]"
+              />
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
             </div>
             
             <div className="flex gap-2">

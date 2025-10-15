@@ -21,10 +21,11 @@ export interface Lead {
   customerName: string;
   leadName: string;
   leadValue: number;
-  leadStatus: 'New' | 'Qualified' | 'Converted' | 'Lost';
+  leadStatus: 'Pending' | 'Approved' | 'Rejected';
   validationFileId: string;
   leadFileUrl: string;
   createdAt: string;
+  revenueMonth: string;
 }
 
 export interface ProjectData {
@@ -181,10 +182,11 @@ export const mockLeads: Lead[] = [
     customerName: 'Tech Solutions Inc',
     leadName: 'AWS Infrastructure Setup',
     leadValue: 450000,
-    leadStatus: 'Converted',
+    leadStatus: 'Approved',
     validationFileId: 'VF-2025-001',
     leadFileUrl: '/files/lead-001.pdf',
-    createdAt: '2024-12-01'
+    createdAt: '2024-12-01',
+    revenueMonth: '2025-01'
   },
   {
     id: '2',
@@ -195,10 +197,11 @@ export const mockLeads: Lead[] = [
     customerName: 'Digital Ventures Ltd',
     leadName: 'iOS & Android App',
     leadValue: 320000,
-    leadStatus: 'Qualified',
+    leadStatus: 'Pending',
     validationFileId: 'VF-2025-002',
     leadFileUrl: '/files/lead-002.pdf',
-    createdAt: '2024-12-05'
+    createdAt: '2024-12-05',
+    revenueMonth: '2025-01'
   },
   {
     id: '3',
@@ -209,10 +212,11 @@ export const mockLeads: Lead[] = [
     customerName: 'Enterprise Systems Co',
     leadName: 'SAP Integration',
     leadValue: 680000,
-    leadStatus: 'Converted',
+    leadStatus: 'Approved',
     validationFileId: 'VF-2025-003',
     leadFileUrl: '/files/lead-003.pdf',
-    createdAt: '2024-11-20'
+    createdAt: '2024-11-20',
+    revenueMonth: '2024-12'
   },
   {
     id: '4',
@@ -223,10 +227,11 @@ export const mockLeads: Lead[] = [
     customerName: 'Tech Solutions Inc',
     leadName: 'HubSpot Setup',
     leadValue: 180000,
-    leadStatus: 'New',
+    leadStatus: 'Pending',
     validationFileId: '',
     leadFileUrl: '/files/lead-004.pdf',
-    createdAt: '2025-01-10'
+    createdAt: '2025-01-10',
+    revenueMonth: '2025-01'
   },
   {
     id: '5',
@@ -237,10 +242,11 @@ export const mockLeads: Lead[] = [
     customerName: 'Innovation Labs',
     leadName: 'CI/CD Pipeline',
     leadValue: 290000,
-    leadStatus: 'Qualified',
+    leadStatus: 'Rejected',
     validationFileId: '',
     leadFileUrl: '/files/lead-005.pdf',
-    createdAt: '2025-01-12'
+    createdAt: '2025-01-12',
+    revenueMonth: '2025-01'
   },
 ];
 
