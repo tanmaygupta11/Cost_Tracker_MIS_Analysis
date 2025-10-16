@@ -28,7 +28,7 @@ const generateProjectTrends = (validations: Validation[]) => {
   
   return Array.from(monthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-5) // Last 5 months
+    .slice(-6) // Last 6 months
     .map(([month, count]) => ({
       month: formatMonthForChart(month),
       projects: count
@@ -49,6 +49,25 @@ const generateRevenueShare = (validations: Validation[]) => {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 8); // Top 8 projects
+};
+
+const generateRevenueTrends = (validations: Validation[]) => {
+  const monthMap = new Map<string, number>();
+  
+  validations.forEach(validation => {
+    if (validation.rev_month && validation.revenue) {
+      const monthKey = validation.rev_month;
+      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, revenue]) => ({
+      month: formatMonthForChart(month),
+      revenue: revenue
+    }));
 };
 
 const formatMonthForChart = (monthString: string) => {
@@ -265,6 +284,7 @@ const ClientDashboard = () => {
   // Generate chart data from validations
   const projectTrends = generateProjectTrends(validations);
   const revenueShare = generateRevenueShare(validations);
+  const revenueTrends = generateRevenueTrends(validations);
   const totalPages = Math.ceil(validations.length / recordsPerPage);
   
   // Calculate paginated validations
@@ -374,7 +394,7 @@ const ClientDashboard = () => {
         {/* Charts Section - Side by Side with Equal Sizes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Chart 1: Projects over last 5 months (Bar Chart) */}
-          <AnalyticsCard title="Projects Over Last 5 Months">
+          <AnalyticsCard title="Projects Over Last 6 Months">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -410,24 +430,13 @@ const ClientDashboard = () => {
             </div>
           </AnalyticsCard>
 
-          {/* Chart 2: Revenue Share by Project (Pie Chart) */}
-          <AnalyticsCard title="Revenue Share by Project">
+          {/* Chart 2: Revenue from Last 6 Months (Bar Chart) */}
+          <AnalyticsCard title="Revenue from Last 6 Months">
             <ResponsiveContainer width="100%" height={320}>
-              <PieChart>
-                <Pie
-                  data={revenueShare}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {revenueShare.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={revenueTrends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip 
                   formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
                   contentStyle={{ 
@@ -436,7 +445,14 @@ const ClientDashboard = () => {
                     borderRadius: '8px'
                   }} 
                 />
-              </PieChart>
+                <Legend />
+                <Bar 
+                  dataKey="revenue" 
+                  fill="hsl(var(--primary))" 
+                  name="Revenue (₹)"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
             </ResponsiveContainer>
           </AnalyticsCard>
         </div>
