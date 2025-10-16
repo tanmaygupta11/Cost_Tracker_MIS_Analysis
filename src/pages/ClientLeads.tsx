@@ -378,7 +378,7 @@ const ClientLeads = () => {
             </div>
           ) : (
             <>
-          <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
+          <div className="flex flex-wrap gap-3 items-end justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
               <div className="flex-1 min-w-[200px]">
                 <label className="text-sm font-medium mb-2 block">Client Approval</label>
@@ -439,7 +439,7 @@ const ClientLeads = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-end gap-2">
                 <Button 
                   variant="outline" 
                   onClick={clearFilters}

@@ -432,11 +432,15 @@ const ClientDashboard = () => {
 
           {/* Chart 2: Revenue from Last 6 Months (Bar Chart) */}
           <AnalyticsCard title="Revenue from Last 6 Months">
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={revenueTrends}>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={revenueTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))" 
+                  tickFormatter={(value) => `₹${(value / 100000).toFixed(1)}L`}
+                  width={60}
+                />
                 <Tooltip 
                   formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
                   contentStyle={{ 

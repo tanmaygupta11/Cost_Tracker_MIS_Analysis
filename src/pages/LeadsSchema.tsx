@@ -159,10 +159,63 @@ const LeadsSchema = () => {
       });
       return;
     }
+
+    // Get selected leads data from paginatedData
+    const selectedLeadsData = paginatedData.filter(lead => selectedLeads.includes(lead.lead_id));
     
+    // CSV headers matching all visible table columns
+    const headers = [
+      'Project ID',
+      'Project Name',
+      'Lead ID',
+      'Final Work Completion Date',
+      'Revised Work Completion Date',
+      'Original Work Completion Date',
+      'Unit Basis Commercial',
+      'Project Incharge Approval',
+      'Project Incharge Approval Date',
+      'Client Incharge Approval',
+      'Client Incharge Approval Date'
+    ];
+
+    // Convert data to CSV format
+    const csvContent = [
+      headers.join(','),
+      ...selectedLeadsData.map(lead => [
+        lead.project_id || '',
+        (lead as any).project_name || '',
+        lead.lead_id,
+        formatDate((lead as any).final_work_completion_date),
+        formatDate((lead as any).revisied_work_completion_date),
+        formatDate((lead as any).original_work_completion_date),
+        (lead as any).unit_basis_commercial || '',
+        (lead as any).project_incharge_approval || '',
+        formatDate((lead as any).project_incharge_approval_date),
+        (lead as any).client_incharge_approval || '',
+        formatDate((lead as any).client_incharge_approval_date)
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Create and download CSV file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `finance_leads_export_${timestamp}.csv`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     toast({
-      title: "Download started",
-      description: `Downloading ${selectedLeads.length} lead file(s)...`,
+      title: "✅ CSV Downloaded",
+      description: `Downloaded ${selectedLeads.length} lead(s) as CSV file.`,
     });
   };
 
