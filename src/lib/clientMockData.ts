@@ -8,7 +8,7 @@ export interface ValidationFile {
   project_name: string;
   project_id: string;
   revenue_month: string;
-  validation_status: 'Approved' | 'Pending' | 'Rejected';
+  validation_status: string;
   revenue: number;
   validation_approval_at: string | null;
 }
@@ -17,7 +17,7 @@ export interface Lead {
   lead_id: string;
   customer_name: string;
   project_name: string;
-  status: 'Approved' | 'Pending' | 'Rejected';
+  status: string;
   date_created: string;
 }
 

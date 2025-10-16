@@ -20,9 +20,9 @@ export interface Lead {
   revisied_work_completion_date: string | null;
   original_work_completion_date: string | null;
   unit_basis_commercial: number | null;
-  project_incharge_approval: 'Approved' | 'Pending' | 'Rejected';
+  project_incharge_approval: string;
   project_incharge_approval_date: string | null;
-  client_incharge_approval: 'Approved' | 'Pending' | 'Rejected';
+  client_incharge_approval: string;
   client_incharge_approval_date: string | null;
   created_at: string;
 }
