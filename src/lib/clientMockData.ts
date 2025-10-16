@@ -31,12 +31,47 @@ export interface RevenueShare {
   value: number;
 }
 
+export interface MonthlyDashboardData {
+  month: string;  // YYYY-MM format
+  totalProjects: number;
+  totalRevenue: number;
+  approvedValidations: number;
+  pendingValidations: number;
+}
+
 export const dashboardSummary = {
   totalProjects: 5,
   totalRevenue: 1870000,
   approvedValidations: 3,
   pendingValidations: 2,
 };
+
+export const monthlyDashboardData: MonthlyDashboardData[] = [
+  { "month": "2024-01", "totalProjects": 3, "totalRevenue": 245000, "approvedValidations": 5, "pendingValidations": 2 },
+  { "month": "2024-02", "totalProjects": 4, "totalRevenue": 310000, "approvedValidations": 6, "pendingValidations": 1 },
+  { "month": "2024-03", "totalProjects": 5, "totalRevenue": 382000, "approvedValidations": 8, "pendingValidations": 3 },
+  { "month": "2024-04", "totalProjects": 3, "totalRevenue": 8750000, "approvedValidations": 2, "pendingValidations": 0 },
+  { "month": "2024-05", "totalProjects": 5, "totalRevenue": 398000, "approvedValidations": 8, "pendingValidations": 1 },
+  { "month": "2024-06", "totalProjects": 7, "totalRevenue": 465000, "approvedValidations": 10, "pendingValidations": 2 },
+  { "month": "2024-07", "totalProjects": 6, "totalRevenue": 432000, "approvedValidations": 9, "pendingValidations": 3 },
+  { "month": "2024-08", "totalProjects": 8, "totalRevenue": 520000, "approvedValidations": 12, "pendingValidations": 2 },
+  { "month": "2024-09", "totalProjects": 9, "totalRevenue": 578000, "approvedValidations": 13, "pendingValidations": 3 },
+  { "month": "2024-10", "totalProjects": 7, "totalRevenue": 489000, "approvedValidations": 11, "pendingValidations": 2 },
+  { "month": "2024-11", "totalProjects": 8, "totalRevenue": 534000, "approvedValidations": 12, "pendingValidations": 1 },
+  { "month": "2024-12", "totalProjects": 10, "totalRevenue": 612000, "approvedValidations": 14, "pendingValidations": 2 },
+  { "month": "2025-01", "totalProjects": 9, "totalRevenue": 590000, "approvedValidations": 13, "pendingValidations": 3 },
+  { "month": "2025-02", "totalProjects": 7, "totalRevenue": 475000, "approvedValidations": 11, "pendingValidations": 2 },
+  { "month": "2025-03", "totalProjects": 8, "totalRevenue": 512000, "approvedValidations": 12, "pendingValidations": 2 },
+  { "month": "2025-04", "totalProjects": 6, "totalRevenue": 455000, "approvedValidations": 9, "pendingValidations": 1 },
+  { "month": "2025-05", "totalProjects": 8, "totalRevenue": 538000, "approvedValidations": 12, "pendingValidations": 3 },
+  { "month": "2025-06", "totalProjects": 9, "totalRevenue": 598000, "approvedValidations": 14, "pendingValidations": 2 },
+  { "month": "2025-07", "totalProjects": 10, "totalRevenue": 635000, "approvedValidations": 15, "pendingValidations": 1 },
+  { "month": "2025-08", "totalProjects": 11, "totalRevenue": 662000, "approvedValidations": 16, "pendingValidations": 2 },
+  { "month": "2025-09", "totalProjects": 9, "totalRevenue": 578000, "approvedValidations": 13, "pendingValidations": 3 },
+  { "month": "2025-10", "totalProjects": 10, "totalRevenue": 620000, "approvedValidations": 14, "pendingValidations": 2 },
+  { "month": "2025-11", "totalProjects": 8, "totalRevenue": 548000, "approvedValidations": 12, "pendingValidations": 1 },
+  { "month": "2025-12", "totalProjects": 11, "totalRevenue": 675000, "approvedValidations": 16, "pendingValidations": 2 }
+];
 
 export const projectTrends: ProjectTrend[] = [
   { month: "May", projects: 2 },

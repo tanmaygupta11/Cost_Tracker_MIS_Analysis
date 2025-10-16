@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import ValidationTable from "@/components/ValidationTable";
@@ -7,6 +7,7 @@ import { fetchValidations, formatCurrency } from "@/lib/supabase";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, DollarSign } from "lucide-react";
 import type { Validation } from "@/lib/supabase";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
@@ -16,7 +17,8 @@ const generateProjectTrends = (validations: Validation[]) => {
   
   validations.forEach(validation => {
     if (validation.rev_month) {
-      const monthKey = validation.rev_month;
+      // Extract YYYY-MM from YYYY-MM-DD format
+      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
       monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
     }
   });
@@ -85,6 +87,98 @@ const FinanceDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Filter state for Revenue Share chart
+  const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  
+  // Generate months array for the selected year
+  const getMonthsForYear = (year: string) => {
+    const months = [
+      { value: '01', label: 'January' },
+      { value: '02', label: 'February' },
+      { value: '03', label: 'March' },
+      { value: '04', label: 'April' },
+      { value: '05', label: 'May' },
+      { value: '06', label: 'June' },
+      { value: '07', label: 'July' },
+      { value: '08', label: 'August' },
+      { value: '09', label: 'September' },
+      { value: '10', label: 'October' },
+      { value: '11', label: 'November' },
+      { value: '12', label: 'December' }
+    ];
+    return months;
+  };
+
+  // Dynamic dropdown options based on mode
+  const getDropdownOptions = () => {
+    if (dropdownMode === 'years') {
+      return [
+        { value: 'ALL', label: 'All Dates' },
+        { value: '2024', label: '2024' },
+        { value: '2025', label: '2025' }
+      ];
+    } else {
+      return [
+        { value: 'BACK', label: '← Back' },
+        ...getMonthsForYear(selectedYear).map(month => ({
+          value: month.value,
+          label: `${month.label} ${selectedYear}`
+        }))
+      ];
+    }
+  };
+
+  // Handle dropdown selection
+  const handleDropdownChange = (value: string) => {
+    if (dropdownMode === 'years') {
+      if (value === 'ALL') {
+        // Reset everything
+        setSelectedYear('');
+        setSelectedMonth('');
+        setDropdownMode('years');
+        setDropdownOpen(false);
+      } else {
+        // Year selected, switch to months
+        setSelectedYear(value);
+        setDropdownMode('months');
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      }
+    } else {
+      // In months mode
+      if (value === 'BACK') {
+        setDropdownMode('years');
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      } else {
+        // Month selected
+        setSelectedMonth(value);
+        setDropdownOpen(false);
+      }
+    }
+  };
+
+  // Handle dropdown open/close events
+  const handleOpenChange = (open: boolean) => {
+    if (!open && dropdownMode === 'months' && selectedYear && !selectedMonth) {
+      return; // Don't close
+    }
+    setDropdownOpen(open);
+  };
+
+  // Display text for dropdown trigger
+  const getDisplayText = () => {
+    if (!selectedYear) return 'All Dates';
+    if (!selectedMonth) return selectedYear;
+    const monthName = getMonthsForYear(selectedYear).find(m => m.value === selectedMonth)?.label;
+    return `${monthName} ${selectedYear}`;
+  };
+  
   // Fetch validations data from Supabase
   useEffect(() => {
     const loadValidations = async () => {
@@ -118,7 +212,23 @@ const FinanceDashboard = () => {
   
   // Generate chart data from validations
   const projectTrends = generateProjectTrends(validations);
-  const revenueShare = generateRevenueShare(validations);
+  
+  // Filtered revenue share based on selected month
+  const revenueShare = useMemo(() => {
+    if (!selectedYear || !selectedMonth) {
+      // Show all data when no filter applied
+      return generateRevenueShare(validations);
+    } else {
+      // Filter validations by selected month
+      // Database stores rev_month as YYYY-MM-DD, so we need to check if it starts with YYYY-MM
+      const selectedMonthPrefix = `${selectedYear}-${selectedMonth}`;
+      const filteredValidations = validations.filter(v => 
+        v.rev_month && v.rev_month.startsWith(selectedMonthPrefix)
+      );
+      
+      return generateRevenueShare(filteredValidations);
+    }
+  }, [validations, selectedYear, selectedMonth]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,25 +244,18 @@ const FinanceDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <AnalyticsCard title="Projects in Last 5 Months">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-center">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Projects</p>
+                  <p className="text-sm text-muted-foreground text-center">Total Projects</p>
                   <p className="text-3xl font-bold text-foreground flex items-center gap-2">
                     <TrendingUp className="h-6 w-6 text-primary" />
                     {totalProjects}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-primary flex items-center gap-1">
-                    <DollarSign className="h-5 w-5" />
-                    ₹{(totalRevenue / 10000000).toFixed(2)}Cr
-                  </p>
-                </div>
               </div>
               
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={projectTrends}>
+                <BarChart data={projectTrends}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -164,52 +267,81 @@ const FinanceDashboard = () => {
                     }} 
                   />
                   <Legend />
-                  <Line 
-                    type="monotone" 
+                  <Bar 
                     dataKey="projects" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
+                    fill="hsl(var(--primary))" 
                     name="Projects"
+                    radius={[8, 8, 0, 0]}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="hsl(var(--accent))" 
-                    strokeWidth={2}
-                    name="Revenue (₹)"
-                  />
-                </LineChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </AnalyticsCard>
 
-          <AnalyticsCard title="Revenue Share (Project-wise)">
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart>
-                <Pie
-                  data={revenueShare}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {revenueShare.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          <AnalyticsCard 
+            title="Revenue Share (Project-wise)"
+            headerAction={
+              <Select 
+                value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
+                onValueChange={handleDropdownChange}
+                open={dropdownOpen}
+                onOpenChange={handleOpenChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Dates">
+                    {getDisplayText()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {getDropdownOptions().map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
                   ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }} 
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                </SelectContent>
+              </Select>
+            }
+          >
+            {revenueShare.length > 0 ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <PieChart>
+                  <Pie
+                    data={revenueShare}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {revenueShare.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[320px]">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-lg">No data available</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {selectedYear && selectedMonth ? 
+                      `No revenue data found for ${getDisplayText()}` : 
+                      'No revenue data available'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
           </AnalyticsCard>
         </div>
 

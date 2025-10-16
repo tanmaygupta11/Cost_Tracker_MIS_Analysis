@@ -168,6 +168,13 @@ const LeadsSchema = () => {
 
 
 
+  // NEW: Check if any filters are active
+  const hasActiveFilters = statusFilter !== ' ' || 
+                          workDateFrom || 
+                          workDateTo || 
+                          clientDateFrom || 
+                          clientDateTo;
+
   const clearFilters = () => {
     setStatusFilter(' ');
     setWorkDateFrom('');
@@ -275,7 +282,8 @@ const LeadsSchema = () => {
               <Button 
                 variant="outline" 
                 onClick={clearFilters}
-                className="flex items-center gap-2"
+                disabled={!hasActiveFilters}
+                className={`flex items-center gap-2 ${!hasActiveFilters ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <X className="h-4 w-4" />
                 Clear Filters

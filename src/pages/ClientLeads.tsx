@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { fetchLeads, formatCurrency, formatDate, getStatusBadge, bulkUpdateLeadApprovals } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClient } from "@/contexts/ClientContext";
 
@@ -255,7 +255,82 @@ const ClientLeads = () => {
     }
   };
 
+  // NEW: Handle CSV download for selected leads
+  const handleBulkDownload = () => {
+    if (selectedLeads.length === 0) {
+      toast({
+        title: "No leads selected",
+        description: "Please select at least one lead to download",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    // Get selected leads data
+    const selectedLeadsData = paginatedData.filter(lead => selectedLeads.includes(lead.lead_id));
+    
+    // CSV headers matching table columns
+    const headers = [
+      'Project ID',
+      'Project Name', 
+      'Lead ID',
+      'Final Work Completion Date',
+      'Revised Work Completion Date',
+      'Original Work Completion Date',
+      'Unit Basis Commercial',
+      'Project Incharge Approval',
+      'Project Incharge Approval Date',
+      'Client Incharge Approval',
+      'Client Incharge Approval Date'
+    ];
+
+    // Convert data to CSV format
+    const csvContent = [
+      headers.join(','),
+      ...selectedLeadsData.map(lead => [
+        lead.project_id || '',
+        (lead as any).project_name || lead.lead_name || '',
+        lead.lead_id,
+        formatDate((lead as any).final_work_completion_date),
+        formatDate((lead as any).revisied_work_completion_date),
+        formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date),
+        (lead as any).unit_basis_commercial || '',
+        (lead as any).project_incharge_approval || '',
+        formatDate((lead as any).project_incharge_approval_date),
+        (lead as any).client_incharge_approval || '',
+        formatDate((lead as any).client_incharge_approval_date)
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Create and download CSV file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `leads_export_${timestamp}.csv`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    toast({
+      title: "✅ CSV Downloaded",
+      description: `Downloaded ${selectedLeads.length} lead(s) as CSV file.`,
+    });
+  };
+
+  // NEW: Check if any filters are active
+  const hasActiveFilters = statusFilter !== "ALL" || 
+                          workDateFrom || 
+                          workDateTo || 
+                          clientDateFrom || 
+                          clientDateTo;
 
   const clearFilters = () => {
     setStatusFilter("ALL");
@@ -368,7 +443,8 @@ const ClientLeads = () => {
                 <Button 
                   variant="outline" 
                   onClick={clearFilters}
-                  className="rounded-xl"
+                  disabled={!hasActiveFilters}
+                  className={`rounded-xl ${!hasActiveFilters ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <X className="h-4 w-4 mr-2" />
                   Clear Filters
@@ -391,6 +467,14 @@ const ClientLeads = () => {
                 >
                   <X className="h-4 w-4 mr-2" />
                   Reject Selected ({selectedLeads.length})
+                </Button>
+                <Button
+                  onClick={handleBulkDownload}
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Selected ({selectedLeads.length})
                 </Button>
               </div>
             )}

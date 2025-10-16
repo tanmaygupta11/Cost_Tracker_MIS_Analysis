@@ -14,6 +14,7 @@ import { ArrowLeft, Check, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { validationFiles as initialData, type ValidationFile } from "@/lib/clientMockData";
 import { useClient } from "@/contexts/ClientContext";
+import { formatDate } from "@/lib/supabase";
 
 const ClientValidationTable = () => {
   const navigate = useNavigate();
@@ -342,7 +343,7 @@ const ClientValidationTable = () => {
                       ₹{validation.revenue.toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell>
-                      {validation.validation_approval_at || '-'}
+                      {formatDate(validation.validation_approval_at)}
                     </TableCell>
                   </TableRow>
                 ))

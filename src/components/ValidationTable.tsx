@@ -25,9 +25,109 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const [customerFilter, setCustomerFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState(' ');
-  const [monthFilter, setMonthFilter] = useState('');
+  // NEW: Dynamic dropdown state management
+  const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   
   const rowsPerPage = 5;
+
+  // NEW: Generate months array for the selected year
+  const getMonthsForYear = (year: string) => {
+    const months = [
+      { value: '01', label: 'January' },
+      { value: '02', label: 'February' },
+      { value: '03', label: 'March' },
+      { value: '04', label: 'April' },
+      { value: '05', label: 'May' },
+      { value: '06', label: 'June' },
+      { value: '07', label: 'July' },
+      { value: '08', label: 'August' },
+      { value: '09', label: 'September' },
+      { value: '10', label: 'October' },
+      { value: '11', label: 'November' },
+      { value: '12', label: 'December' }
+    ];
+    return months;
+  };
+
+  // NEW: Dynamic dropdown options based on mode
+  const getDropdownOptions = () => {
+    if (dropdownMode === 'years') {
+      return [
+        { value: 'ALL', label: 'All Dates' },
+        { value: '2024', label: '2024' },
+        { value: '2025', label: '2025' }
+      ];
+    } else {
+      return [
+        { value: 'BACK', label: '← Back' },
+        ...getMonthsForYear(selectedYear).map(month => ({
+          value: month.value,
+          label: `${month.label} ${selectedYear}`
+        }))
+      ];
+    }
+  };
+
+  // NEW: Handle dropdown selection
+  const handleDropdownChange = (value: string) => {
+    if (dropdownMode === 'years') {
+      if (value === 'ALL') {
+        // Reset everything
+        setSelectedYear('');
+        setSelectedMonth('');
+        setDropdownMode('years');
+        setDropdownOpen(false); // Close dropdown
+      } else {
+        // Year selected, switch to months but keep dropdown open
+        setSelectedYear(value);
+        setDropdownMode('months');
+        // Force dropdown to stay open by using requestAnimationFrame
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      }
+    } else {
+      // In months mode
+      if (value === 'BACK') {
+        setDropdownMode('years');
+        // Keep dropdown open when going back
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      } else {
+        // Month selected
+        setSelectedMonth(value);
+        setDropdownOpen(false); // Close dropdown
+      }
+    }
+  };
+
+  // NEW: Handle dropdown open/close events
+  const handleOpenChange = (open: boolean) => {
+    // Prevent closing if we just selected a year and haven't selected a month yet
+    if (!open && dropdownMode === 'months' && selectedYear && !selectedMonth) {
+      return; // Don't close
+    }
+    setDropdownOpen(open);
+  };
+
+  // NEW: Display text for dropdown trigger
+  const getDisplayText = () => {
+    if (!selectedYear) return 'All Dates';
+    if (!selectedMonth) return selectedYear;
+    const monthName = getMonthsForYear(selectedYear).find(m => m.value === selectedMonth)?.label;
+    return `${monthName} ${selectedYear}`;
+  };
+
+  // NEW: Check if any filters are active
+  const hasActiveFilters = customerFilter || 
+                          projectFilter || 
+                          statusFilter !== ' ' || 
+                          selectedYear || 
+                          selectedMonth;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -43,7 +143,27 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
       const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
       const matchesStatus = !statusFilter || statusFilter === ' ' || item.validation_status === statusFilter;
-      const matchesMonth = !monthFilter || (item.rev_month && item.rev_month.includes(monthFilter));
+      
+      // NEW: Updated month filtering logic for dynamic dropdown
+      let matchesMonth = true;
+      if (selectedYear && selectedMonth) {
+        // Both year and month selected - show specific month-year
+        if (item.rev_month) {
+          const [itemYear, itemMonth] = item.rev_month.split('-');
+          matchesMonth = itemYear === selectedYear && itemMonth === selectedMonth;
+        } else {
+          matchesMonth = false;
+        }
+      } else if (selectedYear && !selectedMonth) {
+        // Only year selected - show all months from that year
+        if (item.rev_month) {
+          const [itemYear] = item.rev_month.split('-');
+          matchesMonth = itemYear === selectedYear;
+        } else {
+          matchesMonth = false;
+        }
+      }
+      // If neither selected, show all records (matchesMonth remains true)
       
       return matchesCustomer && matchesProject && matchesStatus && matchesMonth;
     });
@@ -66,7 +186,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     });
 
     return filtered;
-  }, [data, sortField, sortOrder, customerFilter, projectFilter, statusFilter, monthFilter]);
+  }, [data, sortField, sortOrder, customerFilter, projectFilter, statusFilter, selectedYear, selectedMonth]);
 
   const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -82,7 +202,10 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     setCustomerFilter('');
     setProjectFilter('');
     setStatusFilter(' ');
-    setMonthFilter('');
+    setSelectedYear('');
+    setSelectedMonth('');
+    setDropdownMode('years');
+    setDropdownOpen(false);
     setCurrentPage(1);
   };
 
@@ -113,16 +236,31 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
               <SelectItem value="Rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
-          <Input
-            placeholder="Month (YYYY-MM)"
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="max-w-[150px]"
-          />
+          {/* NEW: Dynamic Single Dropdown */}
+          <Select 
+            value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
+            onValueChange={handleDropdownChange}
+            open={dropdownOpen}
+            onOpenChange={handleOpenChange}
+          >
+            <SelectTrigger className="max-w-[150px]">
+              <SelectValue placeholder="Date Filter">
+                {getDisplayText()}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {getDropdownOptions().map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button 
             variant="outline" 
             onClick={clearFilters}
-            className="flex items-center gap-2"
+            disabled={!hasActiveFilters}
+            className={`flex items-center gap-2 ${!hasActiveFilters ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <X className="h-4 w-4" />
             Clear Filters

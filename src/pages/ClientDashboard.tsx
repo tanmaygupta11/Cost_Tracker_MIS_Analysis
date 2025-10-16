@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import AnalyticsCard from "@/components/AnalyticsCard";
-import { fetchValidations, formatCurrency, formatRevenueMonth, getStatusBadge } from "@/lib/supabase";
+import { fetchValidations, formatCurrency, formatRevenueMonth, getStatusBadge, formatDate } from "@/lib/supabase";
+import { monthlyDashboardData, type MonthlyDashboardData } from "@/lib/clientMockData";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, CheckCircle, DollarSign, Eye, FolderOpen, Clock } from "lucide-react";
 import type { Validation } from "@/lib/supabase";
 import { useClient } from "@/contexts/ClientContext";
@@ -90,8 +92,103 @@ const ClientDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Filter state for month dropdown
+  const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  
   // Pagination setup
   const recordsPerPage = 5;
+  
+  // Generate months array for the selected year
+  const getMonthsForYear = (year: string) => {
+    const months = [
+      { value: '01', label: 'January' },
+      { value: '02', label: 'February' },
+      { value: '03', label: 'March' },
+      { value: '04', label: 'April' },
+      { value: '05', label: 'May' },
+      { value: '06', label: 'June' },
+      { value: '07', label: 'July' },
+      { value: '08', label: 'August' },
+      { value: '09', label: 'September' },
+      { value: '10', label: 'October' },
+      { value: '11', label: 'November' },
+      { value: '12', label: 'December' }
+    ];
+    return months;
+  };
+
+  // Dynamic dropdown options based on mode
+  const getDropdownOptions = () => {
+    if (dropdownMode === 'years') {
+      return [
+        { value: 'ALL', label: 'All Dates' },
+        { value: '2024', label: '2024' },
+        { value: '2025', label: '2025' }
+      ];
+    } else {
+      return [
+        { value: 'BACK', label: '← Back' },
+        ...getMonthsForYear(selectedYear).map(month => ({
+          value: month.value,
+          label: `${month.label} ${selectedYear}`
+        }))
+      ];
+    }
+  };
+
+  // Handle dropdown selection
+  const handleDropdownChange = (value: string) => {
+    if (dropdownMode === 'years') {
+      if (value === 'ALL') {
+        // Reset everything
+        setSelectedYear('');
+        setSelectedMonth('');
+        setDropdownMode('years');
+        setDropdownOpen(false); // Close dropdown
+      } else {
+        // Year selected, switch to months but keep dropdown open
+        setSelectedYear(value);
+        setDropdownMode('months');
+        // Force dropdown to stay open by using requestAnimationFrame
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      }
+    } else {
+      // In months mode
+      if (value === 'BACK') {
+        setDropdownMode('years');
+        // Keep dropdown open when going back
+        requestAnimationFrame(() => {
+          setDropdownOpen(true);
+        });
+      } else {
+        // Month selected
+        setSelectedMonth(value);
+        setDropdownOpen(false); // Close dropdown
+      }
+    }
+  };
+
+  // Handle dropdown open/close events
+  const handleOpenChange = (open: boolean) => {
+    // Prevent closing if we just selected a year and haven't selected a month yet
+    if (!open && dropdownMode === 'months' && selectedYear && !selectedMonth) {
+      return; // Don't close
+    }
+    setDropdownOpen(open);
+  };
+
+  // Display text for dropdown trigger
+  const getDisplayText = () => {
+    if (!selectedYear) return 'All Dates';
+    if (!selectedMonth) return selectedYear;
+    const monthName = getMonthsForYear(selectedYear).find(m => m.value === selectedMonth)?.label;
+    return `${monthName} ${selectedYear}`;
+  };
   
   // Fetch validations data from Supabase (filtered by client's customer)
   useEffect(() => {
@@ -135,7 +232,31 @@ const ClientDashboard = () => {
     loadValidations();
   }, [customerId, customerName]);
   
-  // Calculate analytics from real data
+  // Calculate filtered card data from monthly data
+  const filteredCardData = useMemo(() => {
+    if (!selectedYear || !selectedMonth) {
+      // Show aggregate of all data when no filter
+      return {
+        totalProjects: monthlyDashboardData.reduce((sum, d) => sum + d.totalProjects, 0),
+        totalRevenue: monthlyDashboardData.reduce((sum, d) => sum + d.totalRevenue, 0),
+        approvedValidations: monthlyDashboardData.reduce((sum, d) => sum + d.approvedValidations, 0),
+        pendingValidations: monthlyDashboardData.reduce((sum, d) => sum + d.pendingValidations, 0),
+      };
+    } else {
+      // Show specific month data
+      const monthData = monthlyDashboardData.find(
+        d => d.month === `${selectedYear}-${selectedMonth}`
+      );
+      return monthData || {
+        totalProjects: 0,
+        totalRevenue: 0,
+        approvedValidations: 0,
+        pendingValidations: 0,
+      };
+    }
+  }, [selectedYear, selectedMonth]);
+
+  // Keep original calculations for charts and validation table (unchanged)
   const totalProjects = validations.length;
   const totalRevenue = validations.reduce((sum, validation) => sum + (validation.revenue || 0), 0);
   const approvedValidations = validations.filter(v => v.validation_status === 'Approved').length;
@@ -171,13 +292,39 @@ const ClientDashboard = () => {
           <p className="text-muted-foreground">Track your projects and revenue</p>
         </div>
 
+        {/* Month Filter Section */}
+        <div className="mb-6 flex justify-end">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-muted-foreground">Filter by Month:</label>
+            <Select 
+              value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
+              onValueChange={handleDropdownChange}
+              open={dropdownOpen}
+              onOpenChange={handleOpenChange}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Dates">
+                  {getDisplayText()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {getDropdownOptions().map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* Summary Analytics Section - Top 4 Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-card rounded-xl border border-border p-6 shadow-md hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Projects</p>
-                <p className="text-3xl font-bold text-foreground">{totalProjects}</p>
+                <p className="text-3xl font-bold text-foreground">{filteredCardData.totalProjects}</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-lg">
                 <FolderOpen className="h-6 w-6 text-primary" />
@@ -190,7 +337,7 @@ const ClientDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
                 <p className="text-2xl font-bold text-primary">
-                  ₹{(totalRevenue / 100000).toFixed(1)}L
+                  ₹{(filteredCardData.totalRevenue / 100000).toFixed(1)}L
                 </p>
               </div>
               <div className="p-3 bg-accent/10 rounded-lg">
@@ -203,7 +350,7 @@ const ClientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Approved Validations</p>
-                <p className="text-3xl font-bold text-foreground">{approvedValidations}</p>
+                <p className="text-3xl font-bold text-foreground">{filteredCardData.approvedValidations}</p>
               </div>
               <div className="p-3 bg-green-500/10 rounded-lg">
                 <CheckCircle className="h-6 w-6 text-green-600" />
@@ -215,7 +362,7 @@ const ClientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pending Validations</p>
-                <p className="text-3xl font-bold text-foreground">{pendingValidations}</p>
+                <p className="text-3xl font-bold text-foreground">{filteredCardData.pendingValidations}</p>
               </div>
               <div className="p-3 bg-orange-500/10 rounded-lg">
                 <Clock className="h-6 w-6 text-orange-600" />
@@ -349,7 +496,7 @@ const ClientDashboard = () => {
                         {getStatusBadge(validation.validation_status)}
                       </TableCell>
                       <TableCell className="font-semibold">{formatCurrency(validation.revenue)}</TableCell>
-                      <TableCell>{validation.validation_approval_at || '—'}</TableCell>
+                      <TableCell>{formatDate(validation.validation_approval_at)}</TableCell>
                       <TableCell className="text-center">
                         <Button
                           onClick={() => navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}`)}
