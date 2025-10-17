@@ -11,3 +11,4 @@
 -- This way the foreign key constraint won't be violated
 -- since NULL values are allowed in foreign key columns
 
+

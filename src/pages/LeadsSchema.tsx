@@ -22,7 +22,6 @@ const LeadsSchema = () => {
   const [workDateTo, setWorkDateTo] = useState('');
   const [clientDateFrom, setClientDateFrom] = useState('');
   const [clientDateTo, setClientDateTo] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +59,6 @@ const LeadsSchema = () => {
     
     loadLeads();
   }, [projectId]);
-  
-  const rowsPerPage = 20;
 
   // ✅ Filter leads based on query parameters and manual filters
   const filteredData = useMemo(() => {
@@ -124,15 +121,6 @@ const LeadsSchema = () => {
       return finalMatch;
     });
   }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
-  
-
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  // Show all records if 20 or fewer, otherwise paginate
-  const shouldPaginate = filteredData.length > rowsPerPage;
-  const paginatedData = shouldPaginate 
-    ? filteredData.slice(startIndex, startIndex + rowsPerPage)
-    : filteredData;
 
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
@@ -144,7 +132,7 @@ const LeadsSchema = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(paginatedData.map(lead => lead.lead_id));
+      setSelectedLeads(filteredData.map(lead => lead.lead_id));
     } else {
       setSelectedLeads([]);
     }
@@ -160,8 +148,8 @@ const LeadsSchema = () => {
       return;
     }
 
-    // Get selected leads data from paginatedData
-    const selectedLeadsData = paginatedData.filter(lead => selectedLeads.includes(lead.lead_id));
+    // Get selected leads data from filteredData
+    const selectedLeadsData = filteredData.filter(lead => selectedLeads.includes(lead.lead_id));
     
     // CSV headers matching all visible table columns
     const headers = [
@@ -235,7 +223,6 @@ const LeadsSchema = () => {
     setClientDateFrom('');
     setClientDateTo('');
     setSelectedLeads([]);
-    setCurrentPage(1);
   };
 
   return (
@@ -360,7 +347,7 @@ const LeadsSchema = () => {
                 <TableRow>
                   <TableHead className="w-12 text-center">
                     <Checkbox
-                      checked={paginatedData.length > 0 && paginatedData.every(l => selectedLeads.includes(l.lead_id))}
+                      checked={filteredData.length > 0 && filteredData.every(l => selectedLeads.includes(l.lead_id))}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
@@ -398,7 +385,7 @@ const LeadsSchema = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedData.length === 0 ? (
+                {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
@@ -420,9 +407,7 @@ const LeadsSchema = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedData.map((lead) => {
-                    const projectInchargeStatusBadge = getStatusBadge((lead as any).project_incharge_approval);
-                    const clientInchargeStatusBadge = getStatusBadge((lead as any).client_incharge_approval);
+                  filteredData.map((lead) => {
                     return (
                       <TableRow key={lead.lead_id}>
                         <TableCell className="w-12 text-center">
@@ -438,23 +423,9 @@ const LeadsSchema = () => {
                         <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date)}</TableCell>
                         <TableCell className="w-40 font-semibold text-center">{formatCurrency((lead as any).unit_basis_commercial)}</TableCell>
-                        <TableCell className="w-44 text-center">
-                          <Badge 
-                            variant={projectInchargeStatusBadge.variant}
-                            className={projectInchargeStatusBadge.className}
-                          >
-                            {(lead as any).project_incharge_approval || '—'}
-                          </Badge>
-                        </TableCell>
+                        <TableCell className="w-44 text-center">{(lead as any).project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">
-                          <Badge 
-                            variant={clientInchargeStatusBadge.variant}
-                            className={clientInchargeStatusBadge.className}
-                          >
-                            {(lead as any).client_incharge_approval || '—'}
-                          </Badge>
-                        </TableCell>
+                        <TableCell className="w-44 text-center">{(lead as any).client_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
                       </TableRow>
                     );
@@ -466,48 +437,8 @@ const LeadsSchema = () => {
 
           <div className="flex items-center justify-between mt-4">
             <p className="text-sm text-muted-foreground">
-              {shouldPaginate 
-                ? `Showing ${startIndex + 1} to ${Math.min(startIndex + rowsPerPage, filteredData.length)} of ${filteredData.length} leads`
-                : `Showing ${filteredData.length} of ${filteredData.length} leads`
-              }
+              Showing {filteredData.length} lead{filteredData.length !== 1 ? 's' : ''}
             </p>
-            
-            {shouldPaginate && (
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const page = i + 1;
-                  return (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(page)}
-                      className="min-w-[40px]"
-                    >
-                      {page}
-                    </Button>
-                  );
-                })}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
           </div>
             </>
           )}
