@@ -13,22 +13,25 @@ const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4'
 
 // Helper functions to generate chart data from validations
 const generateProjectTrends = (validations: Validation[]) => {
-  const monthMap = new Map<string, number>();
+  const monthMap = new Map<string, Set<string>>();
   
   validations.forEach(validation => {
-    if (validation.rev_month) {
+    if (validation.rev_month && validation.project_name) {
       // Extract YYYY-MM from YYYY-MM-DD format
       const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
-      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Set());
+      }
+      monthMap.get(monthKey)!.add(validation.project_name);
     }
   });
   
   return Array.from(monthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-5) // Last 5 months
-    .map(([month, count]) => ({
+    .map(([month, projectSet]) => ({
       month: formatMonthForChart(month),
-      projects: count
+      projects: projectSet.size
     }));
 };
 
@@ -244,17 +247,7 @@ const FinanceDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <AnalyticsCard title="Projects in Last 5 Months">
             <div className="space-y-4">
-              <div className="flex items-center justify-center">
-                <div>
-                  <p className="text-sm text-muted-foreground text-center">Total Projects</p>
-                  <p className="text-3xl font-bold text-foreground flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    {totalProjects}
-                  </p>
-                </div>
-              </div>
-              
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={projectTrends}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />

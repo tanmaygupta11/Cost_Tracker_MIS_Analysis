@@ -12,3 +12,4 @@
 -- since NULL values are allowed in foreign key columns
 
 
+

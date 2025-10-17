@@ -1,5 +1,5 @@
 // ✅ New Lead Schema Page - Using new 11-column structure
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { fetchLeads, formatCurrency, formatDate, getStatusBadge } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
-import { Download, ArrowLeft, X } from "lucide-react";
+import { Download, ArrowLeft, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
@@ -28,12 +28,14 @@ const LeadsSchema = () => {
   const [currentBatch, setCurrentBatch] = useState(0);
   const [hasMoreData, setHasMoreData] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
   const projectId = searchParams.get('project_id');
+  const revMonth = searchParams.get('rev_month');
   
-  console.log('LeadsSchema - URL params:', { customerId, projectId });
+  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth });
   
   // Fetch leads data from Supabase (initial load - first 1000 records)
   useEffect(() => {
@@ -41,8 +43,8 @@ const LeadsSchema = () => {
       try {
         setLoading(true);
         setCurrentBatch(0);
-        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId);
-        const { data, error } = await fetchLeads(projectId || undefined, undefined, 0);
+        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth);
+        const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, 0);
         
         console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
         
@@ -69,11 +71,10 @@ const LeadsSchema = () => {
   // Load more leads (next batch of 1000 records)
   const loadMoreLeads = async () => {
     try {
-      setLoadingMore(true);
       const nextBatch = currentBatch + 1;
       console.log('LeadsSchema - Loading more leads, batch:', nextBatch);
       
-      const { data, error } = await fetchLeads(projectId || undefined, undefined, nextBatch);
+      const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, nextBatch);
       
       if (error) {
         console.error('Error fetching more leads:', error);
@@ -86,8 +87,8 @@ const LeadsSchema = () => {
       }
       
       if (data && data.length > 0) {
-        // Append new leads to existing leads
-        setLeads(prevLeads => [...prevLeads, ...data]);
+        // Use concat instead of spread for better performance with large arrays
+        setLeads(prevLeads => prevLeads.concat(data));
         setCurrentBatch(nextBatch);
         // If we got less than 1000 records, there's no more data
         setHasMoreData(data.length === 1000);
@@ -113,6 +114,22 @@ const LeadsSchema = () => {
     } finally {
       setLoadingMore(false);
     }
+  };
+
+  // Handler for Load More button - sets loading state immediately
+  const handleLoadMore = () => {
+    // IMMEDIATELY update the button's disabled state (bypassing React)
+    if (loadMoreButtonRef.current) {
+      loadMoreButtonRef.current.disabled = true;
+    }
+    
+    // Set loading state (React will re-render, but button is already disabled)
+    setLoadingMore(true);
+    
+    // Use requestAnimationFrame to ensure DOM has updated before starting async work
+    requestAnimationFrame(() => {
+      loadMoreLeads();
+    });
   };
 
   // ✅ Filter leads based on query parameters and manual filters
@@ -500,15 +517,17 @@ const LeadsSchema = () => {
           {!loading && hasMoreData && (
             <div className="flex justify-center mt-6">
               <Button
-                onClick={loadMoreLeads}
+                ref={loadMoreButtonRef}
+                onClick={handleLoadMore}
                 disabled={loadingMore}
                 size="lg"
                 className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
               >
                 {loadingMore ? (
-                  <>
-                    <span className="animate-pulse">Loading more records...</span>
-                  </>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading more records...</span>
+                  </div>
                 ) : (
                   <>
                     Load More Records

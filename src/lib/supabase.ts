@@ -43,7 +43,7 @@ export const fetchValidations = async (filters?: {
     }
 
     const { data, error } = await query
-      .order('created_at', { ascending: false })
+      .order('sl_no', { ascending: true })
       .range(from, to);
 
     if (error) {
@@ -70,7 +70,7 @@ export const fetchValidations = async (filters?: {
   return { data: allValidations, error: null };
 };
 
-// Leads table queries - with pagination support
+// Leads table queries - with pagination support and performance optimization
 export const fetchLeads = async (projectId?: string, filters?: {
   status?: string;
   workDateFrom?: string;
@@ -78,8 +78,9 @@ export const fetchLeads = async (projectId?: string, filters?: {
   clientDateFrom?: string;
   clientDateTo?: string;
   customerId?: string;
+  revMonth?: string;
 }, page: number = 0) => {
-  const PAGE_SIZE = 1000;
+  const PAGE_SIZE = 1000; // Load 1000 records per batch
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
@@ -89,6 +90,29 @@ export const fetchLeads = async (projectId?: string, filters?: {
 
   if (projectId) {
     query = query.eq('project_id', projectId);
+  }
+
+  // Add additional filters if provided
+  if (filters?.status) {
+    query = query.eq('lead_status', filters.status);
+  }
+  if (filters?.customerId) {
+    query = query.eq('customer_id', filters.customerId);
+  }
+  
+  // If revMonth is provided, filter by matching month and year
+  if (filters?.revMonth) {
+    // Extract YYYY-MM from the date (e.g., "2024-11-15" -> "2024-11")
+    const yearMonth = filters.revMonth.substring(0, 7); // Gets "2024-11"
+    
+    // Calculate the last day of the month
+    const year = parseInt(yearMonth.substring(0, 4));
+    const month = parseInt(yearMonth.substring(5, 7));
+    const lastDay = new Date(year, month, 0).getDate(); // Gets 30 for November, 31 for January, etc.
+    
+    // Filter leads where final_work_completion_date matches the same month/year
+    query = query.gte('final_work_completion_date', `${yearMonth}-01`)
+                 .lte('final_work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
   }
 
   const { data, error } = await query

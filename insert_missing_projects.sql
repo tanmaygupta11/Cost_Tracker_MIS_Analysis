@@ -19,3 +19,4 @@ ON CONFLICT (project_id) DO NOTHING;
 SELECT project_id, project_name, customer_id FROM public.projects ORDER BY project_id;
 
 
+

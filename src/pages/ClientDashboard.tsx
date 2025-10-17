@@ -17,21 +17,24 @@ const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
 // Helper functions to generate chart data from validations
 const generateProjectTrends = (validations: Validation[]) => {
-  const monthMap = new Map<string, number>();
+  const monthMap = new Map<string, Set<string>>();
   
   validations.forEach(validation => {
-    if (validation.rev_month) {
+    if (validation.rev_month && validation.project_name) {
       const monthKey = validation.rev_month;
-      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Set());
+      }
+      monthMap.get(monthKey)!.add(validation.project_name);
     }
   });
   
   return Array.from(monthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-6) // Last 6 months
-    .map(([month, count]) => ({
+    .map(([month, projectSet]) => ({
       month: formatMonthForChart(month),
-      projects: count
+      projects: projectSet.size
     }));
 };
 
@@ -396,17 +399,7 @@ const ClientDashboard = () => {
           {/* Chart 1: Projects over last 5 months (Bar Chart) */}
           <AnalyticsCard title="Projects Over Last 6 Months">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Projects</p>
-                  <p className="text-2xl font-bold text-foreground flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    {projectTrends.reduce((sum, item) => sum + item.projects, 0)}
-                  </p>
-                </div>
-              </div>
-              
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={projectTrends}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
@@ -503,7 +496,7 @@ const ClientDashboard = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  recentValidations.map((validation) => (
+                  recentValidations.map((validation, index) => (
                     <TableRow key={validation.validation_file_id}>
                       <TableCell>{validation.sl_no}</TableCell>
                       <TableCell className="font-mono text-sm">{validation.validation_file_id}</TableCell>
@@ -519,7 +512,17 @@ const ClientDashboard = () => {
                       <TableCell>{formatDate(validation.validation_approval_at)}</TableCell>
                       <TableCell className="text-center">
                         <Button
-                          onClick={() => navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}`)}
+                          onClick={() => {
+                            console.log('=== DEBUG: View Details Clicked ===');
+                            console.log('Full validation object:', validation);
+                            console.log('rev_month value:', validation.rev_month);
+                            console.log('rev_month type:', typeof validation.rev_month);
+                            console.log('formatted display:', formatRevenueMonth(validation.rev_month));
+                            console.log('URL will be:', `/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}`);
+                            console.log('=====================================');
+                            
+                            navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}`);
+                          }}
                           variant="outline"
                           size="sm"
                           className="gap-2 rounded-xl hover:opacity-90 transition-opacity"
@@ -550,7 +553,7 @@ const ClientDashboard = () => {
                   >
                     Previous
                   </Button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map(page => (
                     <Button
                       key={page}
                       variant={currentPage === page ? "default" : "outline"}

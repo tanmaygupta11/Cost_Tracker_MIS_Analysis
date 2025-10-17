@@ -323,7 +323,7 @@ const ClientValidationTable = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map((validation) => (
+                  filteredData.map((validation, index) => (
                   <TableRow key={validation.validation_file_id}>
                     <TableCell>
                       <Checkbox

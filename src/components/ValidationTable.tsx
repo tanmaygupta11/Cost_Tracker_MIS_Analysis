@@ -19,7 +19,7 @@ type SortOrder = 'asc' | 'desc';
 
 const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const navigate = useNavigate();
-  const [sortField, setSortField] = useState<SortField>('id');
+  const [sortField, setSortField] = useState<SortField>('sl_no');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [customerFilter, setCustomerFilter] = useState('');
@@ -347,7 +347,14 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                 <TableCell>{formatDate(row.validation_approval_at)}</TableCell>
                 <TableCell className="text-center">
                   <Button
-                    onClick={() => navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}`)}
+                    onClick={() => {
+                      console.log('=== DEBUG: View Leads Clicked (ValidationTable) ===');
+                      console.log('Full validation object:', row);
+                      console.log('rev_month value:', row.rev_month);
+                      console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
+                      console.log('=====================================');
+                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
+                    }}
                     variant="outline"
                     size="sm"
                     className="gap-2 rounded-xl hover:opacity-90 transition-opacity"
@@ -377,7 +384,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             Previous
           </Button>
           
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map(page => (
             <Button
               key={page}
               variant={currentPage === page ? "default" : "outline"}
