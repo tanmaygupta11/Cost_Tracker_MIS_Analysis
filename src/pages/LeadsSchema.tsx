@@ -25,6 +25,9 @@ const LeadsSchema = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [hasMoreData, setHasMoreData] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
@@ -32,13 +35,14 @@ const LeadsSchema = () => {
   
   console.log('LeadsSchema - URL params:', { customerId, projectId });
   
-  // Fetch leads data from Supabase
+  // Fetch leads data from Supabase (initial load - first 1000 records)
   useEffect(() => {
     const loadLeads = async () => {
       try {
         setLoading(true);
-        console.log('LeadsSchema - Loading leads with projectId:', projectId);
-        const { data, error } = await fetchLeads(projectId || undefined);
+        setCurrentBatch(0);
+        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId);
+        const { data, error } = await fetchLeads(projectId || undefined, undefined, 0);
         
         console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
         
@@ -49,6 +53,8 @@ const LeadsSchema = () => {
         }
         
         setLeads(data || []);
+        // If we got exactly 1000 records, there might be more
+        setHasMoreData((data?.length || 0) === 1000);
       } catch (err) {
         console.error('Error loading leads:', err);
         setError('Failed to load leads data');
@@ -59,6 +65,55 @@ const LeadsSchema = () => {
     
     loadLeads();
   }, [projectId]);
+
+  // Load more leads (next batch of 1000 records)
+  const loadMoreLeads = async () => {
+    try {
+      setLoadingMore(true);
+      const nextBatch = currentBatch + 1;
+      console.log('LeadsSchema - Loading more leads, batch:', nextBatch);
+      
+      const { data, error } = await fetchLeads(projectId || undefined, undefined, nextBatch);
+      
+      if (error) {
+        console.error('Error fetching more leads:', error);
+        toast({
+          title: "Error loading more data",
+          description: "Failed to load additional records. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Append new leads to existing leads
+        setLeads(prevLeads => [...prevLeads, ...data]);
+        setCurrentBatch(nextBatch);
+        // If we got less than 1000 records, there's no more data
+        setHasMoreData(data.length === 1000);
+        
+        toast({
+          title: "✅ More records loaded",
+          description: `Loaded ${data.length} additional records.`,
+        });
+      } else {
+        setHasMoreData(false);
+        toast({
+          title: "No more records",
+          description: "All available records have been loaded.",
+        });
+      }
+    } catch (err) {
+      console.error('Error loading more leads:', err);
+      toast({
+        title: "Error",
+        description: "Failed to load more records.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // ✅ Filter leads based on query parameters and manual filters
   const filteredData = useMemo(() => {
@@ -437,9 +492,32 @@ const LeadsSchema = () => {
 
           <div className="flex items-center justify-between mt-4">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredData.length} lead{filteredData.length !== 1 ? 's' : ''}
+              Showing {filteredData.length} lead{filteredData.length !== 1 ? 's' : ''} (Loaded {leads.length} total records)
             </p>
           </div>
+
+          {/* Load More Button */}
+          {!loading && hasMoreData && (
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={loadMoreLeads}
+                disabled={loadingMore}
+                size="lg"
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              >
+                {loadingMore ? (
+                  <>
+                    <span className="animate-pulse">Loading more records...</span>
+                  </>
+                ) : (
+                  <>
+                    Load More Records
+                    <span className="ml-2 text-sm opacity-80">(Next 1000)</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
             </>
           )}
         </div>
