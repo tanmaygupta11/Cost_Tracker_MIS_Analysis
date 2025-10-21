@@ -510,7 +510,6 @@ const ClientDashboard = () => {
             <Table className="w-full min-w-max table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Sl No</TableHead>
                   <TableHead>Validation File ID</TableHead>
                   <TableHead>Customer Name</TableHead>
                   <TableHead>Customer ID</TableHead>
@@ -519,14 +518,13 @@ const ClientDashboard = () => {
                   <TableHead>Revenue Month</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Revenue (₹)</TableHead>
-                  <TableHead>Approval Date</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentValidations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-12">
+                    <TableCell colSpan={9} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">No validations found for your account.</p>
                       <p className="text-sm text-muted-foreground mt-2">Check back later for updates.</p>
                     </TableCell>
@@ -534,7 +532,6 @@ const ClientDashboard = () => {
                 ) : (
                   recentValidations.map((validation, index) => (
                     <TableRow key={validation.validation_file_id}>
-                      <TableCell>{validation.sl_no}</TableCell>
                       <TableCell className="font-mono text-sm">{validation.validation_file_id}</TableCell>
                       <TableCell>{validation.customer_name}</TableCell>
                       <TableCell className="font-mono text-sm">{validation.customer_id}</TableCell>
@@ -545,7 +542,6 @@ const ClientDashboard = () => {
                         {getStatusBadge(validation.validation_status)}
                       </TableCell>
                       <TableCell className="font-semibold">{formatCurrency(validation.revenue)}</TableCell>
-                      <TableCell>{formatDate(validation.validation_approval_at)}</TableCell>
                       <TableCell className="text-center">
                         <Button
                           onClick={() => {
@@ -575,10 +571,7 @@ const ClientDashboard = () => {
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6">
-                <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, validations.length)} of {validations.length} validations
-                </div>
+              <div className="flex items-center justify-end mt-6">
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

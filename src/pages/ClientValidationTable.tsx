@@ -248,10 +248,6 @@ const ClientValidationTable = () => {
             </div>
           </div>
 
-          {/* Summary */}
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredData.length} of {data.length} validations
-          </div>
         </div>
 
         {/* Bulk Actions Bar (appears when rows are selected) */}
@@ -302,7 +298,6 @@ const ClientValidationTable = () => {
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead>Sl No</TableHead>
                 <TableHead>Validation File ID</TableHead>
                 <TableHead>Customer Name</TableHead>
                 <TableHead>Customer ID</TableHead>
@@ -311,13 +306,12 @@ const ClientValidationTable = () => {
                 <TableHead>Revenue Month</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Revenue (₹)</TableHead>
-                <TableHead>Approval Date</TableHead>
               </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-12">
+                    <TableCell colSpan={9} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">No validations found for your account.</p>
                       <p className="text-sm text-muted-foreground mt-2">Check back later for updates.</p>
                     </TableCell>
@@ -331,7 +325,6 @@ const ClientValidationTable = () => {
                         onCheckedChange={(checked) => handleSelectRow(validation.validation_file_id, checked as boolean)}
                       />
                     </TableCell>
-                    <TableCell>{validation.sl_no}</TableCell>
                     <TableCell className="font-mono text-sm">{validation.validation_file_id}</TableCell>
                     <TableCell>{validation.customer_name}</TableCell>
                     <TableCell className="font-mono text-sm">{validation.customer_id}</TableCell>
@@ -342,22 +335,12 @@ const ClientValidationTable = () => {
                     <TableCell className="font-semibold">
                       ₹{validation.revenue.toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell>
-                      {formatDate(validation.validation_approval_at)}
-                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
-
-        {/* Summary - No pagination, show all records */}
-        {filteredData.length > 0 && (
-          <div className="text-center text-sm text-muted-foreground mt-6">
-            Showing {filteredData.length} of {data.length} validations
-          </div>
-        )}
       </div>
     </div>
   );

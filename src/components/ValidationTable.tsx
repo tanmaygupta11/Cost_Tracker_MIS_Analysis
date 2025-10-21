@@ -304,7 +304,6 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">Sl No</TableHead>
               <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('validation_file_id')} className="h-8 px-2">
                   Validation File ID <SortIcon field="validation_file_id" />
@@ -345,18 +344,12 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                   Revenue (₹) <SortIcon field="revenue" />
                 </Button>
               </TableHead>
-              <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validation_approval_at')} className="h-8 px-2">
-                  Approval Date <SortIcon field="validation_approval_at" />
-                </Button>
-              </TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
               <TableRow key={row.validation_file_id}>
-                <TableCell>{row.sl_no}</TableCell>
                 <TableCell className="font-medium">{row.validation_file_id}</TableCell>
                 <TableCell>{row.customer_name || '—'}</TableCell>
                 <TableCell>{row.customer_id || '—'}</TableCell>
@@ -372,7 +365,6 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                   </Badge>
                 </TableCell>
                 <TableCell className="font-semibold">{formatCurrency(row.revenue)}</TableCell>
-                <TableCell>{formatDate(row.validation_approval_at)}</TableCell>
                 <TableCell className="text-center">
                   <Button
                     onClick={() => {
@@ -398,10 +390,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
-          </p>
+        <div className="flex items-center justify-end">
           
           <div className="flex gap-1">
             <Button
