@@ -1,5 +1,5 @@
 // ✅ New Client Lead Schema Page - Using new 11-column structure with Client-specific actions
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { fetchLeads, formatCurrency, formatDate, getStatusBadge, bulkUpdateLeadApprovals } from "@/lib/supabase";
+import { fetchLeads, formatCurrency, formatDate, getStatusBadge, bulkApproveLeads, bulkRejectLeads } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
-import { ArrowLeft, Check, X, Download } from "lucide-react";
+import { ArrowLeft, Check, X, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useClient } from "@/contexts/ClientContext";
 
@@ -24,16 +24,33 @@ const ClientLeads = () => {
   const [workDateTo, setWorkDateTo] = useState('');
   const [clientDateFrom, setClientDateFrom] = useState('');
   const [clientDateTo, setClientDateTo] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [hasMoreData, setHasMoreData] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
   const projectId = searchParams.get('project_id');
+  const revMonth = searchParams.get('rev_month');
   
-  console.log('ClientLeads - URL params:', { customerId, projectId });
+  console.log('ClientLeads - URL params:', { customerId, projectId, revMonth });
+  
+  // Calculate min/max dates for date pickers based on rev_month
+  let minDate = '';
+  let maxDate = '';
+  if (revMonth) {
+    const yearMonth = revMonth.substring(0, 7); // "2024-11"
+    const year = parseInt(yearMonth.substring(0, 4));
+    const month = parseInt(yearMonth.substring(5, 7));
+    const lastDay = new Date(year, month, 0).getDate();
+    
+    minDate = `${yearMonth}-01`;
+    maxDate = `${yearMonth}-${lastDay.toString().padStart(2, '0')}`;
+  }
   
   
   // Fetch leads data from Supabase
@@ -42,8 +59,8 @@ const ClientLeads = () => {
       try {
         setLoading(true);
         
-        console.log('ClientLeads - Loading leads with projectId:', projectId);
-        const { data, error } = await fetchLeads(projectId || undefined);
+        console.log('ClientLeads - Loading leads with projectId:', projectId, 'revMonth:', revMonth);
+        const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, 0);
         
         console.log('ClientLeads - Fetch result:', { data, error, count: data?.length });
         
@@ -53,23 +70,9 @@ const ClientLeads = () => {
           return;
         }
         
-        // Apply client-side filtering for ROX customers
-        let filteredData = data || [];
-        
-        // For ROX customers, we need to ensure they only see their leads
-        // Since leads table doesn't have customer_id, we'll filter based on the client context
-        // For now, we'll show all leads for the project since the relationship is complex
-        // TODO: Implement proper customer filtering when database schema is clarified
-        
-        if (customerName === 'ROX' || clientCustomerId === 'ROX-CUST-001') {
-          // For ROX, we can filter based on URL parameters or other criteria
-          // Since the "View Leads" button comes from a specific validation with known customer,
-          // we trust that the leads shown are for the correct customer context
-          // In the future, this could be enhanced with proper joins
-          console.log('ROX customer detected - showing all leads for project:', projectId);
-        }
-        
-        setLeads(filteredData);
+        setLeads(data || []);
+        setCurrentBatch(0);
+        setHasMoreData((data?.length || 0) === 1000);
       } catch (err) {
         console.error('Error loading leads:', err);
         setError('Failed to load leads data');
@@ -79,10 +82,57 @@ const ClientLeads = () => {
     };
     
     loadLeads();
-  }, [projectId, clientCustomerId, customerName]);
+  }, [projectId, clientCustomerId, customerName, revMonth]);
   
-  const rowsPerPage = 20;
-
+  // Load more leads (next batch of 1000)
+  const loadMoreLeads = async () => {
+    try {
+      const nextBatch = currentBatch + 1;
+      console.log(`ClientLeads - Loading more leads, batch ${nextBatch}`);
+      
+      const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, nextBatch);
+      
+      if (error) {
+        console.error('Error loading more leads:', error);
+        toast({
+          title: "Error loading more records",
+          description: "Failed to fetch additional leads",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log(`ClientLeads - Loaded ${data?.length || 0} more records`);
+      
+      // Append new data to existing leads
+      setLeads(prevLeads => prevLeads.concat(data || []));
+      setCurrentBatch(nextBatch);
+      setHasMoreData((data?.length || 0) === 1000);
+    } catch (err) {
+      console.error('Error in loadMoreLeads:', err);
+      toast({
+        title: "Error",
+        description: "Failed to load more records",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+  
+  const handleLoadMore = () => {
+    // IMMEDIATELY update the button's disabled state (bypassing React)
+    if (loadMoreButtonRef.current) {
+      loadMoreButtonRef.current.disabled = true;
+    }
+    // Set loading state (React will re-render, but button is already disabled)
+    setLoadingMore(true);
+    // Use requestAnimationFrame to ensure DOM has updated before starting async work
+    requestAnimationFrame(() => {
+      loadMoreLeads();
+    });
+  };
+  
   // ✅ Filter leads based on query parameters and manual filters
   const filteredData = useMemo(() => {
     return leads.filter(lead => {
@@ -139,14 +189,6 @@ const ClientLeads = () => {
     });
   }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
 
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  // Show all records if 20 or fewer, otherwise paginate
-  const shouldPaginate = filteredData.length > rowsPerPage;
-  const paginatedData = shouldPaginate 
-    ? filteredData.slice(startIndex, startIndex + rowsPerPage)
-    : filteredData;
-
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
       setSelectedLeads(prev => [...prev, leadId]);
@@ -157,7 +199,7 @@ const ClientLeads = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedLeads(paginatedData.map(lead => lead.lead_id));
+      setSelectedLeads(filteredData.map(lead => lead.lead_id));
     } else {
       setSelectedLeads([]);
     }
@@ -175,7 +217,7 @@ const ClientLeads = () => {
     }
     
     try {
-      const { error } = await bulkUpdateLeadApprovals(selectedLeads, 'Approved', 'client_incharge_approval');
+      const { error } = await bulkApproveLeads(selectedLeads);
       
       if (error) {
         console.error('Error approving leads:', error);
@@ -188,14 +230,15 @@ const ClientLeads = () => {
       }
       
       toast({
-        title: "✅ Leads Approved",
-        description: `Approved ${selectedLeads.length} lead(s). Approval dates have been updated.`,
+        title: "Success",
+        description: `${selectedLeads.length} lead(s) approved successfully`,
       });
       
-      // Refresh data and clear selection
+      // Clear selection
       setSelectedLeads([]);
+      
       // Reload leads data
-      const { data } = await fetchLeads(projectId || undefined);
+      const { data } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, currentBatch);
       if (data) {
         setLeads(data);
       }
@@ -220,7 +263,7 @@ const ClientLeads = () => {
     }
     
     try {
-      const { error } = await bulkUpdateLeadApprovals(selectedLeads, 'Rejected', 'client_incharge_approval');
+      const { error } = await bulkRejectLeads(selectedLeads);
       
       if (error) {
         console.error('Error rejecting leads:', error);
@@ -233,15 +276,15 @@ const ClientLeads = () => {
       }
       
       toast({
-        title: "❌ Leads Rejected",
-        description: `Rejected ${selectedLeads.length} lead(s). Approval dates have been updated.`,
-        variant: "destructive"
+        title: "Success",
+        description: `${selectedLeads.length} lead(s) rejected successfully`,
       });
       
-      // Refresh data and clear selection
+      // Clear selection
       setSelectedLeads([]);
+      
       // Reload leads data
-      const { data } = await fetchLeads(projectId || undefined);
+      const { data } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, currentBatch);
       if (data) {
         setLeads(data);
       }
@@ -267,16 +310,15 @@ const ClientLeads = () => {
     }
 
     // Get selected leads data
-    const selectedLeadsData = paginatedData.filter(lead => selectedLeads.includes(lead.lead_id));
+    const selectedLeadsData = filteredData.filter(lead => selectedLeads.includes(lead.lead_id));
     
     // CSV headers matching table columns
     const headers = [
       'Project ID',
       'Project Name', 
       'Lead ID',
-      'Final Work Completion Date',
       'Revised Work Completion Date',
-      'Original Work Completion Date',
+      'Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
@@ -291,7 +333,6 @@ const ClientLeads = () => {
         lead.project_id || '',
         (lead as any).project_name || lead.lead_name || '',
         lead.lead_id,
-        formatDate((lead as any).final_work_completion_date),
         formatDate((lead as any).revisied_work_completion_date),
         formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date),
         (lead as any).unit_basis_commercial || '',
@@ -339,7 +380,6 @@ const ClientLeads = () => {
     setClientDateFrom('');
     setClientDateTo('');
     setSelectedLeads([]);
-    setCurrentPage(1);
   };
 
   return (
@@ -403,6 +443,8 @@ const ClientLeads = () => {
                     type="date"
                     value={workDateFrom}
                     onChange={(e) => setWorkDateFrom(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="From"
                   />
@@ -411,6 +453,8 @@ const ClientLeads = () => {
                     type="date"
                     value={workDateTo}
                     onChange={(e) => setWorkDateTo(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="To"
                   />
@@ -425,6 +469,8 @@ const ClientLeads = () => {
                     type="date"
                     value={clientDateFrom}
                     onChange={(e) => setClientDateFrom(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="From"
                   />
@@ -433,6 +479,8 @@ const ClientLeads = () => {
                     type="date"
                     value={clientDateTo}
                     onChange={(e) => setClientDateTo(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="To"
                   />
@@ -486,32 +534,25 @@ const ClientLeads = () => {
                 <TableRow>
                   <TableHead className="w-12 text-center">
                     <Checkbox
-                      checked={paginatedData.length > 0 && paginatedData.every(l => selectedLeads.includes(l.lead_id))}
+                      checked={filteredData.length > 0 && filteredData.every(l => selectedLeads.includes(l.lead_id))}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">
-                    <div>
-                      <div>Revised Work</div>
-                      <div>Completion Date</div>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">
-                    <div>
-                      <div>Original Work</div>
-                      <div>Completion Date</div>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-40 text-center whitespace-normal break-words">Unit Basis Commercial</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">Work Completion Date</TableHead>
                   <TableHead className="w-44 text-center whitespace-normal break-words">Project Incharge Approval</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Project Incharge</div>
                       <div>Approval Date</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Revised Work</div>
+                      <div>Completion Date</div>
                     </div>
                   </TableHead>
                   <TableHead className="w-44 text-center whitespace-normal break-words">Client Incharge Approval</TableHead>
@@ -524,9 +565,9 @@ const ClientLeads = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedData.length === 0 ? (
+                {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-12">
+                    <TableCell colSpan={11} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
                         {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
                           ? "No records found for the selected date range."
@@ -546,9 +587,7 @@ const ClientLeads = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedData.map((lead) => {
-                    const projectInchargeStatusBadge = getStatusBadge((lead as any).project_incharge_approval);
-                    const clientInchargeStatusBadge = getStatusBadge((lead as any).client_incharge_approval);
+                  filteredData.map((lead) => {
                     return (
                       <TableRow key={lead.lead_id}>
                         <TableCell className="w-12 text-center">
@@ -560,27 +599,11 @@ const ClientLeads = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{(lead as any).project_name || lead.lead_name || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).final_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date)}</TableCell>
-                        <TableCell className="w-40 font-semibold text-center">{formatCurrency((lead as any).unit_basis_commercial)}</TableCell>
-                        <TableCell className="w-44 text-center">
-                          <Badge 
-                            variant={projectInchargeStatusBadge.variant}
-                            className={projectInchargeStatusBadge.className}
-                          >
-                            {(lead as any).project_incharge_approval || '—'}
-                          </Badge>
-                        </TableCell>
+                        <TableCell className="w-44 text-center">{(lead as any).project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">
-                          <Badge 
-                            variant={clientInchargeStatusBadge.variant}
-                            className={clientInchargeStatusBadge.className}
-                          >
-                            {(lead as any).client_incharge_approval || '—'}
-                          </Badge>
-                        </TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{(lead as any).client_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
                       </TableRow>
                     );
@@ -590,49 +613,31 @@ const ClientLeads = () => {
             </Table>
           </div>
 
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex flex-col items-center gap-4 mt-6">
             <p className="text-sm text-muted-foreground">
-              Showing {shouldPaginate 
-                ? `${startIndex + 1} to ${Math.min(startIndex + rowsPerPage, filteredData.length)} of ${filteredData.length} leads`
-                : `${filteredData.length} of ${filteredData.length} leads`
-              }
+              Showing {filteredData.length} of {leads.length} total loaded leads
             </p>
             
-            {shouldPaginate && (
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const page = i + 1;
-                  return (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(page)}
-                      className="min-w-[40px]"
-                    >
-                      {page}
-                    </Button>
-                  );
-                })}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+            {hasMoreData && (
+              <Button
+                ref={loadMoreButtonRef}
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                size="lg"
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              >
+                {loadingMore ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading more records...</span>
+                  </div>
+                ) : (
+                  <>
+                    Load More Records
+                    <span className="ml-2 text-sm opacity-80">(Next 1000)</span>
+                  </>
+                )}
+              </Button>
             )}
           </div>
             </>

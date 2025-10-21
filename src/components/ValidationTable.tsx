@@ -192,6 +192,34 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + rowsPerPage);
 
+  // Helper function for sliding window pagination
+  const getVisiblePages = (current: number, total: number): number[] => {
+    // If total pages <= 3, show all pages
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    
+    // Calculate window: keep current page in middle
+    let start = Math.max(1, current - 1);
+    let end = Math.min(total, current + 1);
+    
+    // Adjust for boundaries
+    if (current === 1) {
+      start = 1;
+      end = 3;
+    } else if (current === total) {
+      start = total - 2;
+      end = total;
+    }
+    
+    // Generate page array
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
     return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
@@ -369,43 +397,45 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {startIndex + 1} to {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
-        </p>
-        
-        <div className="flex gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {startIndex + 1} to {Math.min(startIndex + rowsPerPage, filteredAndSortedData.length)} of {filteredAndSortedData.length} entries
+          </p>
           
-          {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map(page => (
+          <div className="flex gap-1">
             <Button
-              key={page}
-              variant={currentPage === page ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(page)}
-              className="min-w-[40px]"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
             >
-              {page}
+              Previous
             </Button>
-          ))}
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
+            
+            {getVisiblePages(currentPage, totalPages).map(page => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+                className="min-w-[40px]"
+              >
+                {page}
+              </Button>
+            ))}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

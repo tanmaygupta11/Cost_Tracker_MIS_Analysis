@@ -12,43 +12,116 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
 // Helper functions to generate chart data from validations
-const generateProjectTrends = (validations: Validation[]) => {
-  const monthMap = new Map<string, Set<string>>();
+const generateMonthlyRevenue = (validations: Validation[]) => {
+  const monthMap = new Map<string, number>();
   
   validations.forEach(validation => {
-    if (validation.rev_month && validation.project_name) {
+    if (validation.rev_month && validation.revenue) {
       // Extract YYYY-MM from YYYY-MM-DD format
       const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, new Set());
-      }
-      monthMap.get(monthKey)!.add(validation.project_name);
+      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
     }
   });
   
   return Array.from(monthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-5) // Last 5 months
+    .slice(-6) // Last 6 months
+    .map(([month, totalRevenue]) => ({
+      month: formatMonthForChart(month),
+      revenue: totalRevenue
+    }));
+};
+
+const generateRevenueShare = (validations: Validation[]) => {
+  const lobMap = new Map<string, number>();
+  
+  validations.forEach(validation => {
+    // Ignore NULL or empty LOB values
+    if (validation.LOB && validation.LOB.trim() !== '' && validation.revenue) {
+      const lob = validation.LOB;
+      lobMap.set(lob, (lobMap.get(lob) || 0) + validation.revenue);
+    }
+  });
+  
+  return Array.from(lobMap.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8); // Top 8 LOBs
+};
+
+const generateCustomerCountByMonth = (validations: Validation[]) => {
+  const monthMap = new Map<string, Set<string>>();
+  
+  validations.forEach(validation => {
+    if (validation.rev_month && validation.customer_id) {
+      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
+      
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Set());
+      }
+      
+      // Add customer_id to the Set (automatically handles uniqueness)
+      monthMap.get(monthKey)!.add(validation.customer_id);
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, customerSet]) => ({
+      month: formatMonthForChart(month),
+      customers: customerSet.size
+    }));
+};
+
+const generateProjectCountByMonth = (validations: Validation[]) => {
+  const monthMap = new Map<string, Set<string>>();
+  
+  validations.forEach(validation => {
+    if (validation.rev_month && validation.project_id) {
+      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
+      
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Set());
+      }
+      
+      // Add project_id to the Set (automatically handles uniqueness)
+      monthMap.get(monthKey)!.add(validation.project_id);
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
     .map(([month, projectSet]) => ({
       month: formatMonthForChart(month),
       projects: projectSet.size
     }));
 };
 
-const generateRevenueShare = (validations: Validation[]) => {
-  const projectMap = new Map<string, number>();
+const generateIncompleteFilesByMonth = (validations: Validation[]) => {
+  const monthMap = new Map<string, number>();
   
   validations.forEach(validation => {
-    if (validation.project_name && validation.revenue) {
-      const projectName = validation.project_name;
-      projectMap.set(projectName, (projectMap.get(projectName) || 0) + validation.revenue);
+    if (validation.rev_month) {
+      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
+      
+      // Count as incomplete if Validation_completed is "Incomplete"
+      const isIncomplete = validation.Validation_completed === 'Incomplete';
+      
+      if (isIncomplete) {
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + 1);
+      }
     }
   });
   
-  return Array.from(projectMap.entries())
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8); // Top 8 projects
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, count]) => ({
+      month: formatMonthForChart(month),
+      incomplete: count
+    }));
 };
 
 const formatMonthForChart = (monthString: string) => {
@@ -214,7 +287,10 @@ const FinanceDashboard = () => {
   const pendingValidations = validations.filter(v => v.validation_status === 'Pending').length;
   
   // Generate chart data from validations
-  const projectTrends = generateProjectTrends(validations);
+  const monthlyRevenue = generateMonthlyRevenue(validations);
+  const customerCountByMonth = generateCustomerCountByMonth(validations);
+  const projectCountByMonth = generateProjectCountByMonth(validations);
+  const incompleteFilesByMonth = generateIncompleteFilesByMonth(validations);
   
   // Filtered revenue share based on selected month
   const revenueShare = useMemo(() => {
@@ -245,25 +321,36 @@ const FinanceDashboard = () => {
 
         {/* Analytics Section - Side by Side with Equal Sizes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <AnalyticsCard title="Projects in Last 5 Months">
+          <AnalyticsCard title="Month on Month Revenue">
             <div className="space-y-4">
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={projectTrends}>
+                <BarChart data={monthlyRevenue}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) {
+                        return `${(value / 1000000).toFixed(1)}M`;
+                      } else if (value >= 1000) {
+                        return `${(value / 1000).toFixed(1)}K`;
+                      }
+                      return value.toString();
+                    }}
+                  />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
-                    }} 
+                    }}
+                    formatter={(value) => [formatCurrency(value), 'Revenue']}
                   />
                   <Legend />
                   <Bar 
-                    dataKey="projects" 
+                    dataKey="revenue" 
                     fill="hsl(var(--primary))" 
-                    name="Projects"
+                    name="Revenue"
                     radius={[8, 8, 0, 0]}
                   />
                 </BarChart>
@@ -272,7 +359,7 @@ const FinanceDashboard = () => {
           </AnalyticsCard>
 
           <AnalyticsCard 
-            title="Revenue Share (Project-wise)"
+            title="Revenue Share (LOB-wise)"
             headerAction={
               <Select 
                 value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
@@ -336,6 +423,87 @@ const FinanceDashboard = () => {
               </div>
             )}
           </AnalyticsCard>
+        </div>
+
+        {/* Second Row - Customer Count and Future Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <AnalyticsCard title="Customer Count by Month">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={customerCountByMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar 
+                  dataKey="customers" 
+                  fill="#06b6d4"
+                  name="Customers"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </AnalyticsCard>
+
+          <AnalyticsCard title="Project Count by Month">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={projectCountByMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar 
+                  dataKey="projects" 
+                  fill="#6366f1"
+                  name="Projects"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </AnalyticsCard>
+        </div>
+
+        {/* Third Row - Incomplete Files and Empty Space */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <AnalyticsCard title="Incomplete Validation Files by Month">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={incompleteFilesByMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar 
+                  dataKey="incomplete" 
+                  fill="#f59e0b"
+                  name="Incomplete Files"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </AnalyticsCard>
+
+          {/* Empty space */}
+          <div></div>
         </div>
 
         {/* Validation Files Section */}

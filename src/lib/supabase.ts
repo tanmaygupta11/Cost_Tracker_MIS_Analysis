@@ -152,26 +152,23 @@ export const updateLeadApproval = async (
     .eq('lead_id', leadId);
 };
 
-// Bulk update lead approvals
-export const bulkUpdateLeadApprovals = async (
-  leadIds: string[],
-  approval: 'Approved' | 'Rejected',
-  approvalType: 'client_incharge_approval' | 'project_incharge_approval'
-) => {
-  const updateData: any = {
-    [approvalType]: approval,
-  };
-
-  // Set approval date
-  if (approvalType === 'client_incharge_approval') {
-    updateData.client_incharge_approval_date = new Date().toISOString();
-  } else if (approvalType === 'project_incharge_approval') {
-    updateData.project_incharge_approval_date = new Date().toISOString();
-  }
-
+// Bulk approve leads - only update approval date
+export const bulkApproveLeads = async (leadIds: string[]) => {
   return supabase
     .from('leads')
-    .update(updateData)
+    .update({ 
+      client_incharge_approval_date: new Date().toISOString() 
+    } as any)
+    .in('lead_id', leadIds);
+};
+
+// Bulk reject leads - set approval date to null
+export const bulkRejectLeads = async (leadIds: string[]) => {
+  return supabase
+    .from('leads')
+    .update({ 
+      client_incharge_approval_date: null 
+    } as any)
     .in('lead_id', leadIds);
 };
 

@@ -16,16 +16,39 @@ import { useClient } from "@/contexts/ClientContext";
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
 // Helper functions to generate chart data from validations
-const generateProjectTrends = (validations: Validation[]) => {
+const generateMonthlyRevenue = (validations: Validation[]) => {
+  const monthMap = new Map<string, number>();
+  
+  validations.forEach(validation => {
+    if (validation.rev_month && validation.revenue) {
+      // Extract YYYY-MM from YYYY-MM-DD format
+      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
+      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, totalRevenue]) => ({
+      month: formatMonthForChart(month),
+      revenue: totalRevenue
+    }));
+};
+
+const generateProjectCountByMonth = (validations: Validation[]) => {
   const monthMap = new Map<string, Set<string>>();
   
   validations.forEach(validation => {
-    if (validation.rev_month && validation.project_name) {
-      const monthKey = validation.rev_month;
+    if (validation.rev_month && validation.project_id) {
+      const monthKey = validation.rev_month.substring(0, 7); // "2024-08"
+      
       if (!monthMap.has(monthKey)) {
         monthMap.set(monthKey, new Set());
       }
-      monthMap.get(monthKey)!.add(validation.project_name);
+      
+      // Add project_id to Set (automatically handles uniqueness)
+      monthMap.get(monthKey)!.add(validation.project_id);
     }
   });
   
@@ -36,22 +59,6 @@ const generateProjectTrends = (validations: Validation[]) => {
       month: formatMonthForChart(month),
       projects: projectSet.size
     }));
-};
-
-const generateRevenueShare = (validations: Validation[]) => {
-  const projectMap = new Map<string, number>();
-  
-  validations.forEach(validation => {
-    if (validation.project_name && validation.revenue) {
-      const projectName = validation.project_name;
-      projectMap.set(projectName, (projectMap.get(projectName) || 0) + validation.revenue);
-    }
-  });
-  
-  return Array.from(projectMap.entries())
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8); // Top 8 projects
 };
 
 const generateRevenueTrends = (validations: Validation[]) => {
@@ -230,13 +237,8 @@ const ClientDashboard = () => {
         // Filter data based on client context
         let filteredData = data || [];
         
-        // If logged in with client@demo.com, filter to show only ROX customer data
-        if (customerName === 'ROX') {
-          filteredData = (data || []).filter(validation => 
-            validation.customer_name && validation.customer_name.toLowerCase().includes('rox')
-          );
-        } else if (customerId) {
-          // For other clients, filter by customer_id
+        // Filter by customer_id for all clients
+        if (customerId) {
           filteredData = (data || []).filter(validation => 
             validation.customer_id === customerId
           );
@@ -285,8 +287,8 @@ const ClientDashboard = () => {
   const pendingValidations = validations.filter(v => v.validation_status === 'Pending').length;
   
   // Generate chart data from validations
-  const projectTrends = generateProjectTrends(validations);
-  const revenueShare = generateRevenueShare(validations);
+  const monthlyRevenue = generateMonthlyRevenue(validations);
+  const projectCountByMonth = generateProjectCountByMonth(validations);
   const revenueTrends = generateRevenueTrends(validations);
   const totalPages = Math.ceil(validations.length / recordsPerPage);
   
@@ -294,6 +296,34 @@ const ClientDashboard = () => {
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
   const recentValidations = validations.slice(startIndex, endIndex);
+
+  // Helper function for sliding window pagination
+  const getVisiblePages = (current: number, total: number): number[] => {
+    // If total pages <= 3, show all pages
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    
+    // Calculate window: keep current page in middle
+    let start = Math.max(1, current - 1);
+    let end = Math.min(total, current + 1);
+    
+    // Adjust for boundaries
+    if (current === 1) {
+      start = 1;
+      end = 3;
+    } else if (current === total) {
+      start = total - 2;
+      end = total;
+    }
+    
+    // Generate page array
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive"> = {
@@ -397,25 +427,36 @@ const ClientDashboard = () => {
         {/* Charts Section - Side by Side with Equal Sizes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Chart 1: Projects over last 5 months (Bar Chart) */}
-          <AnalyticsCard title="Projects Over Last 6 Months">
+          <AnalyticsCard title="Month on Month Revenue">
             <div className="space-y-4">
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={projectTrends}>
+                <BarChart data={monthlyRevenue}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) {
+                        return `${(value / 1000000).toFixed(1)}M`;
+                      } else if (value >= 1000) {
+                        return `${(value / 1000).toFixed(1)}K`;
+                      }
+                      return value.toString();
+                    }}
+                  />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
-                    }} 
+                    }}
+                    formatter={(value: any) => [formatCurrency(Number(value)), 'Revenue']}
                   />
                   <Legend />
                   <Bar 
-                    dataKey="projects" 
+                    dataKey="revenue" 
                     fill="hsl(var(--primary))" 
-                    name="Projects"
+                    name="Revenue"
                     radius={[8, 8, 0, 0]}
                   />
                 </BarChart>
@@ -423,30 +464,25 @@ const ClientDashboard = () => {
             </div>
           </AnalyticsCard>
 
-          {/* Chart 2: Revenue from Last 6 Months (Bar Chart) */}
-          <AnalyticsCard title="Revenue from Last 6 Months">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          {/* Chart 2: Number of Projects */}
+          <AnalyticsCard title="Number of Projects">
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={projectCountByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))" 
-                  tickFormatter={(value) => `₹${(value / 100000).toFixed(1)}L`}
-                  width={60}
-                />
-                <Tooltip 
-                  formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px'
-                  }} 
+                  }}
                 />
                 <Legend />
-                <Bar 
-                  dataKey="revenue" 
-                  fill="hsl(var(--primary))" 
-                  name="Revenue (₹)"
+                <Bar
+                  dataKey="projects"
+                  fill="#f97316"
+                  name="Projects"
                   radius={[8, 8, 0, 0]}
                 />
               </BarChart>
@@ -538,7 +574,7 @@ const ClientDashboard = () => {
             </Table>
             
             {/* Pagination */}
-            {validations.length > 0 && (
+            {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6">
                 <div className="text-sm text-muted-foreground">
                   Showing {startIndex + 1} to {Math.min(endIndex, validations.length)} of {validations.length} validations
@@ -553,7 +589,7 @@ const ClientDashboard = () => {
                   >
                     Previous
                   </Button>
-                  {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map(page => (
+                  {getVisiblePages(currentPage, totalPages).map(page => (
                     <Button
                       key={page}
                       variant={currentPage === page ? "default" : "outline"}

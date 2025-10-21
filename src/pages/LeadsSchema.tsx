@@ -17,7 +17,6 @@ const LeadsSchema = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState(' ');
   const [workDateFrom, setWorkDateFrom] = useState('');
   const [workDateTo, setWorkDateTo] = useState('');
   const [clientDateFrom, setClientDateFrom] = useState('');
@@ -36,6 +35,19 @@ const LeadsSchema = () => {
   const revMonth = searchParams.get('rev_month');
   
   console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth });
+  
+  // Calculate min/max dates for date pickers based on rev_month
+  let minDate = '';
+  let maxDate = '';
+  if (revMonth) {
+    const yearMonth = revMonth.substring(0, 7); // "2024-11"
+    const year = parseInt(yearMonth.substring(0, 4));
+    const month = parseInt(yearMonth.substring(5, 7));
+    const lastDay = new Date(year, month, 0).getDate();
+    
+    minDate = `${yearMonth}-01`;
+    maxDate = `${yearMonth}-${lastDay.toString().padStart(2, '0')}`;
+  }
   
   // Fetch leads data from Supabase (initial load - first 1000 records)
   useEffect(() => {
@@ -134,15 +146,14 @@ const LeadsSchema = () => {
 
   // ✅ Filter leads based on query parameters and manual filters
   const filteredData = useMemo(() => {
-    
-    return leads.filter(lead => {
+    const filtered = leads.filter(lead => {
       // ✅ Apply query parameter filters first
       // Since we're already filtering by project_id in the database query, we can skip that check here
       const matchesQueryCustomer = true; // Customer ID not in leads table
       const matchesQueryProject = true; // Already filtered in database query
       
       // ✅ Apply remaining manual filters
-      const matchesStatus = !statusFilter || statusFilter.trim() === '' || statusFilter === ' ' || (lead as any).client_incharge_approval === statusFilter;
+      // Status filter removed - no longer filtering by approval status
       
       
       // ✅ Apply Work Completion Date Range filter (using available date fields)
@@ -187,12 +198,15 @@ const LeadsSchema = () => {
         }
       }
       
-      const finalMatch = matchesQueryCustomer && matchesQueryProject && matchesStatus && matchesWorkDate && matchesClientDate;
+      const finalMatch = matchesQueryCustomer && matchesQueryProject && matchesWorkDate && matchesClientDate;
       
       
       return finalMatch;
     });
-  }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
+    
+    console.log(`LeadsSchema - Filtered: ${filtered.length} leads out of ${leads.length} total loaded`);
+    return filtered;
+  }, [leads, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
 
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
@@ -228,9 +242,8 @@ const LeadsSchema = () => {
       'Project ID',
       'Project Name',
       'Lead ID',
-      'Final Work Completion Date',
       'Revised Work Completion Date',
-      'Original Work Completion Date',
+      'Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
@@ -245,7 +258,6 @@ const LeadsSchema = () => {
         lead.project_id || '',
         (lead as any).project_name || '',
         lead.lead_id,
-        formatDate((lead as any).final_work_completion_date),
         formatDate((lead as any).revisied_work_completion_date),
         formatDate((lead as any).original_work_completion_date),
         (lead as any).unit_basis_commercial || '',
@@ -282,14 +294,12 @@ const LeadsSchema = () => {
 
 
   // NEW: Check if any filters are active
-  const hasActiveFilters = statusFilter !== ' ' || 
-                          workDateFrom || 
+  const hasActiveFilters = workDateFrom || 
                           workDateTo || 
                           clientDateFrom || 
                           clientDateTo;
 
   const clearFilters = () => {
-    setStatusFilter(' ');
     setWorkDateFrom('');
     setWorkDateTo('');
     setClientDateFrom('');
@@ -335,18 +345,6 @@ const LeadsSchema = () => {
             <>
           <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="max-w-[150px]">
-                  <SelectValue placeholder="Client Approval" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">All Approval</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-              
               {/* Work Completion Date Range Filter */}
               <div className="flex items-center gap-2 min-w-[280px]">
                 <label className="text-sm font-medium whitespace-nowrap">Work Completion Date:</label>
@@ -355,6 +353,8 @@ const LeadsSchema = () => {
                     type="date"
                     value={workDateFrom}
                     onChange={(e) => setWorkDateFrom(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="px-2 py-1 text-sm border border-border rounded-md bg-background"
                     placeholder="From"
                   />
@@ -363,6 +363,8 @@ const LeadsSchema = () => {
                     type="date"
                     value={workDateTo}
                     onChange={(e) => setWorkDateTo(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="px-2 py-1 text-sm border border-border rounded-md bg-background"
                     placeholder="To"
                   />
@@ -377,6 +379,8 @@ const LeadsSchema = () => {
                     type="date"
                     value={clientDateFrom}
                     onChange={(e) => setClientDateFrom(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="px-2 py-1 text-sm border border-border rounded-md bg-background"
                     placeholder="From"
                   />
@@ -385,6 +389,8 @@ const LeadsSchema = () => {
                     type="date"
                     value={clientDateTo}
                     onChange={(e) => setClientDateTo(e.target.value)}
+                    min={minDate}
+                    max={maxDate}
                     className="px-2 py-1 text-sm border border-border rounded-md bg-background"
                     placeholder="To"
                   />
@@ -426,25 +432,18 @@ const LeadsSchema = () => {
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">
-                    <div>
-                      <div>Revised Work</div>
-                      <div>Completion Date</div>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">
-                    <div>
-                      <div>Original Work</div>
-                      <div>Completion Date</div>
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-40 text-center whitespace-normal break-words">Unit Basis Commercial</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">Work Completion Date</TableHead>
                   <TableHead className="w-44 text-center whitespace-normal break-words">Project Incharge Approval</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Project Incharge</div>
                       <div>Approval Date</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Revised Work</div>
+                      <div>Completion Date</div>
                     </div>
                   </TableHead>
                   <TableHead className="w-44 text-center whitespace-normal break-words">Client Incharge Approval</TableHead>
@@ -459,7 +458,7 @@ const LeadsSchema = () => {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-12">
+                    <TableCell colSpan={11} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
                         {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
                           ? "No records found for the selected date range."
@@ -491,12 +490,10 @@ const LeadsSchema = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{(lead as any).project_name || lead.lead_name || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).final_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date)}</TableCell>
-                        <TableCell className="w-40 font-semibold text-center">{formatCurrency((lead as any).unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{(lead as any).project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{(lead as any).client_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
                       </TableRow>
