@@ -6,8 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { fetchLeads, formatCurrency, formatDate, getStatusBadge, bulkApproveLeads, bulkRejectLeads } from "@/lib/supabase";
+import { fetchLeads, formatCurrency, formatDate, bulkApproveLeads, bulkRejectLeads, updateLeadRevisedDate } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
 import { ArrowLeft, Check, X, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -19,11 +18,14 @@ const ClientLeads = () => {
   const { customerId: clientCustomerId, customerName } = useClient();
   const [searchParams] = useSearchParams();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [showAdditionalColumns, setShowAdditionalColumns] = useState(false);
   const [workDateFrom, setWorkDateFrom] = useState('');
   const [workDateTo, setWorkDateTo] = useState('');
   const [clientDateFrom, setClientDateFrom] = useState('');
   const [clientDateTo, setClientDateTo] = useState('');
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+  const [editingDate, setEditingDate] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,9 +142,6 @@ const ClientLeads = () => {
       const matchesQueryCustomer = true; // Customer ID not in leads table
       const matchesQueryProject = !projectId || lead.project_id === projectId;
       
-      // ✅ Apply remaining manual filters
-      const matchesStatus = !statusFilter || statusFilter === "ALL" || (lead as any).client_incharge_approval === statusFilter;
-      
       // ✅ Apply Work Completion Date Range filter (using available date fields)
       let matchesWorkDate = true;
       if (workDateFrom || workDateTo) {
@@ -185,9 +184,9 @@ const ClientLeads = () => {
         }
       }
       
-      return matchesQueryCustomer && matchesQueryProject && matchesStatus && matchesWorkDate && matchesClientDate;
+      return matchesQueryProject && matchesWorkDate && matchesClientDate;
     });
-  }, [leads, statusFilter, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
+  }, [leads, projectId, workDateFrom, workDateTo, clientDateFrom, clientDateTo]);
 
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
@@ -314,32 +313,43 @@ const ClientLeads = () => {
     
     // CSV headers matching table columns
     const headers = [
-      'Project ID',
-      'Project Name', 
       'Lead ID',
-      'Revised Work Completion Date',
+      'Project ID',
+      'Project Name',
+      'Final Work Completion Date',
       'Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
+      'Revised Work Completion Date',
       'Client Incharge Approval',
-      'Client Incharge Approval Date'
+      'Client Incharge Approval Date',
+      ...(showAdditionalColumns ? ['Zone', 'City', 'State', 'TC Code', 'Role', 'Shift'] : [])
     ];
 
     // Convert data to CSV format
     const csvContent = [
       headers.join(','),
       ...selectedLeadsData.map(lead => [
-        lead.project_id || '',
-        (lead as any).project_name || lead.lead_name || '',
         lead.lead_id,
-        formatDate((lead as any).revisied_work_completion_date),
-        formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date),
-        (lead as any).unit_basis_commercial || '',
-        (lead as any).project_incharge_approval || '',
-        formatDate((lead as any).project_incharge_approval_date),
-        (lead as any).client_incharge_approval || '',
-        formatDate((lead as any).client_incharge_approval_date)
+        lead.project_id || '',
+        lead.project_name || '',
+        formatDate(lead.final_work_completion_date),
+        formatDate(lead["Original_Work_Completion_Date"]),
+        lead.unit_basis_commercial || '',
+        lead.project_incharge_approval || '',
+        formatDate(lead.project_incharge_approval_date),
+        formatDate(lead.revisied_work_completion_date),
+        lead.client_incharge_approval || '',
+        formatDate(lead.client_incharge_approval_date),
+        ...(showAdditionalColumns ? [
+          lead["Zone"] || '',
+          lead["City"] || '',
+          lead["State"] || '',
+          lead["TC Code"] || '',
+          lead["Role"] || '',
+          lead["Shift"] || ''
+        ] : [])
       ].map(field => `"${field}"`).join(','))
     ].join('\n');
 
@@ -367,19 +377,104 @@ const ClientLeads = () => {
   };
 
   // NEW: Check if any filters are active
-  const hasActiveFilters = statusFilter !== "ALL" || 
-                          workDateFrom || 
+  const hasActiveFilters = workDateFrom || 
                           workDateTo || 
                           clientDateFrom || 
                           clientDateTo;
 
   const clearFilters = () => {
-    setStatusFilter("ALL");
     setWorkDateFrom('');
     setWorkDateTo('');
     setClientDateFrom('');
     setClientDateTo('');
     setSelectedLeads([]);
+  };
+
+  // Edit functionality for Revised Work Completion Date
+  const handleEditDate = (leadId: string, currentDate: string | null) => {
+    setEditingLeadId(leadId);
+    // Convert date to YYYY-MM-DD format for input
+    const formattedDate = currentDate ? new Date(currentDate).toISOString().split('T')[0] : '';
+    setEditingDate(formattedDate);
+  };
+
+  const handleSaveDate = async (leadId: string) => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      // Convert date back to the format expected by the database
+      const dateToSave = editingDate ? new Date(editingDate).toISOString() : null;
+      
+      // Update local state immediately for better UX
+      setLeads(prevLeads => 
+        prevLeads.map(lead => 
+          lead.lead_id === leadId 
+            ? { ...lead, revisied_work_completion_date: dateToSave }
+            : lead
+        )
+      );
+
+      // Update database
+      await updateLeadRevisedDate(leadId, dateToSave);
+
+      // Reset editing state
+      setEditingLeadId(null);
+      setEditingDate('');
+      
+      toast({
+        title: "Success",
+        description: "Revised work completion date updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update revised work completion date.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLeadId(null);
+    setEditingDate('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, leadId: string) => {
+    if (e.key === 'Enter') {
+      handleSaveDate(leadId);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  // Get revenue month date range based on URL parameter
+  const getRevenueMonthRange = () => {
+    console.log('getRevenueMonthRange called with revMonth:', revMonth);
+    if (!revMonth) {
+      // If no revenue month parameter, allow all dates (fallback)
+      return { min: '', max: '' };
+    }
+
+    try {
+      // Parse revenue month (assuming format like "2024-01" or "2024-01-01")
+      const year = revMonth.substring(0, 4);
+      const month = revMonth.substring(5, 7);
+      
+      // First day of the month
+      const firstDay = `${year}-${month}-01`;
+      
+      // Last day of the month
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+      
+      console.log('Date range calculated:', { min: firstDay, max: lastDay });
+      return { min: firstDay, max: lastDay };
+    } catch (error) {
+      console.error('Error parsing revenue month:', error);
+      return { min: '', max: '' };
+    }
   };
 
   return (
@@ -407,6 +502,16 @@ const ClientLeads = () => {
           )}
         </div>
 
+        <div className="mb-4">
+          <Button
+            onClick={() => setShowAdditionalColumns(!showAdditionalColumns)}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {showAdditionalColumns ? 'Hide Additional Columns' : 'Show Additional Columns'}
+          </Button>
+        </div>
+
         <div className="bg-card rounded-lg border border-border p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -420,21 +525,6 @@ const ClientLeads = () => {
             <>
           <div className="flex flex-wrap gap-3 items-end justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
-              <div className="flex-1 min-w-[200px]">
-                <label className="text-sm font-medium mb-2 block">Client Approval</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Client Approval" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Approval</SelectItem>
-                    <SelectItem value="Approved">Approved</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Work Completion Date Range Filter */}
               <div className="flex-1 min-w-[280px]">
                 <label className="text-sm font-medium mb-2 block">Work Completion Date</label>
@@ -529,7 +619,7 @@ const ClientLeads = () => {
           </div>
 
           <div className="bg-card rounded-xl border border-border w-full overflow-x-auto table-container">
-            <Table className="w-full" style={{ minWidth: '1500px' }}>
+            <Table className="w-full" style={{ minWidth: showAdditionalColumns ? '2000px' : '1400px' }}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-center">
@@ -538,11 +628,28 @@ const ClientLeads = () => {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
+                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
-                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Work Completion Date</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Project Incharge Approval</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Work</div>
+                      <div>Completion Date</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-32 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Unit Basis</div>
+                      <div>Commercial</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Project Incharge</div>
+                      <div>Approval</div>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Project Incharge</div>
@@ -555,19 +662,34 @@ const ClientLeads = () => {
                       <div>Completion Date</div>
                     </div>
                   </TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Client Incharge Approval</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Client Incharge</div>
+                      <div>Approval</div>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Client Incharge</div>
                       <div>Approval Date</div>
                     </div>
                   </TableHead>
+                  {showAdditionalColumns && (
+                    <>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Zone</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">City</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">State</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">TC Code</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Role</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Shift</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-12">
+                    <TableCell colSpan={showAdditionalColumns ? 18 : 12} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
                         {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
                           ? "No records found for the selected date range."
@@ -596,15 +718,61 @@ const ClientLeads = () => {
                             onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
                           />
                         </TableCell>
-                        <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
-                        <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{(lead as any).project_name || lead.lead_name || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{(lead as any).project_incharge_approval || '—'}</TableCell>
-                        <TableCell className="w-48 text-center">{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{(lead as any).client_incharge_approval || '—'}</TableCell>
-                        <TableCell className="w-48 text-center">{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
+                        <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
+                        <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate(lead["Original_Work_Completion_Date"])}</TableCell>
+                        <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
+                        <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
+                        <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
+                        <TableCell className="w-44 text-center">
+                          {editingLeadId === lead.lead_id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              {(() => {
+                                const dateRange = getRevenueMonthRange();
+                                return (
+                                  <input
+                                    type="date"
+                                    value={editingDate}
+                                    onChange={(e) => setEditingDate(e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(e, lead.lead_id)}
+                                    onBlur={() => handleSaveDate(lead.lead_id)}
+                                    className="px-2 py-1 text-sm border border-border rounded bg-background"
+                                    autoFocus
+                                    disabled={isSaving}
+                                    min={dateRange.min}
+                                    max={dateRange.max}
+                                    title={dateRange.min && dateRange.max ? `Select date between ${dateRange.min} and ${dateRange.max}` : 'Select date'}
+                                  />
+                                );
+                              })()}
+                              {isSaving && (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          ) : (
+                            <div 
+                              className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors"
+                              onClick={() => handleEditDate(lead.lead_id, lead.revisied_work_completion_date)}
+                              title="Click to edit"
+                            >
+                              {formatDate(lead.revisied_work_completion_date)}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="w-44 text-center">{lead.client_incharge_approval || '—'}</TableCell>
+                        <TableCell className="w-48 text-center">{formatDate(lead.client_incharge_approval_date)}</TableCell>
+                        {showAdditionalColumns && (
+                          <>
+                            <TableCell className="w-32 text-center">{lead["Zone"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["City"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["State"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["TC Code"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["Role"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["Shift"] || '—'}</TableCell>
+                          </>
+                        )}
                       </TableRow>
                     );
                   })

@@ -18,13 +18,19 @@ export interface Lead {
   project_name: string;
   final_work_completion_date: string | null;
   revisied_work_completion_date: string | null;
-  original_work_completion_date: string | null;
   unit_basis_commercial: number | null;
-  project_incharge_approval: string;
+  project_incharge_approval: string | null;
   project_incharge_approval_date: string | null;
-  client_incharge_approval: string;
+  client_incharge_approval: string | null;
   client_incharge_approval_date: string | null;
-  created_at: string;
+  "Original_Work_Completion_Date": string | null;
+  projectid: string | null;
+  "Zone": string | null;
+  "City": string | null;
+  "State": string | null;
+  "TC Code": string | null;
+  "Role": string | null;
+  "Shift": string | null;
 }
 
 export interface ProjectData {
@@ -178,13 +184,19 @@ export const mockLeads: Lead[] = [
     project_name: 'Cloud Migration',
     final_work_completion_date: '15-01-2025',
     revisied_work_completion_date: '20-01-2025',
-    original_work_completion_date: '10-01-2025',
     unit_basis_commercial: 450000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '22-01-2025',
     client_incharge_approval: 'Approved',
     client_incharge_approval_date: '25-01-2025',
-    created_at: '2024-12-01'
+    "Original_Work_Completion_Date": '10-01-2025',
+    projectid: 'PROJ-001',
+    "Zone": 'North',
+    "City": 'Delhi',
+    "State": 'Delhi',
+    "TC Code": 'TC001',
+    "Role": 'Developer',
+    "Shift": 'Day'
   },
   {
     lead_id: 'LEAD-002',
@@ -192,13 +204,19 @@ export const mockLeads: Lead[] = [
     project_name: 'Mobile App Development',
     final_work_completion_date: null,
     revisied_work_completion_date: '05-02-2025',
-    original_work_completion_date: '01-02-2025',
     unit_basis_commercial: 320000.00,
     project_incharge_approval: 'Pending',
     project_incharge_approval_date: null,
     client_incharge_approval: 'Pending',
     client_incharge_approval_date: null,
-    created_at: '2024-12-05'
+    "Original_Work_Completion_Date": '01-02-2025',
+    projectid: 'PROJ-002',
+    "Zone": 'South',
+    "City": 'Bangalore',
+    "State": 'Karnataka',
+    "TC Code": 'TC002',
+    "Role": 'Designer',
+    "Shift": 'Night'
   },
   {
     lead_id: 'LEAD-003',
@@ -206,13 +224,19 @@ export const mockLeads: Lead[] = [
     project_name: 'ERP Implementation',
     final_work_completion_date: '28-12-2024',
     revisied_work_completion_date: '30-12-2024',
-    original_work_completion_date: '25-12-2024',
     unit_basis_commercial: 680000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '02-01-2025',
     client_incharge_approval: 'Approved',
     client_incharge_approval_date: '05-01-2025',
-    created_at: '2024-11-20'
+    "Original_Work_Completion_Date": '25-12-2024',
+    projectid: 'PROJ-003',
+    "Zone": 'West',
+    "City": 'Mumbai',
+    "State": 'Maharashtra',
+    "TC Code": 'TC003',
+    "Role": 'Analyst',
+    "Shift": 'Day'
   },
   {
     lead_id: 'LEAD-004',
@@ -220,13 +244,19 @@ export const mockLeads: Lead[] = [
     project_name: 'Cloud Migration',
     final_work_completion_date: null,
     revisied_work_completion_date: null,
-    original_work_completion_date: '15-02-2025',
     unit_basis_commercial: 400000.00,
     project_incharge_approval: 'Rejected',
     project_incharge_approval_date: '10-01-2025',
     client_incharge_approval: 'Pending',
     client_incharge_approval_date: null,
-    created_at: '2024-11-15'
+    "Original_Work_Completion_Date": '15-02-2025',
+    projectid: 'PROJ-001',
+    "Zone": 'North',
+    "City": 'Delhi',
+    "State": 'Delhi',
+    "TC Code": 'TC001',
+    "Role": 'Developer',
+    "Shift": 'Day'
   },
   {
     lead_id: 'LEAD-005',
@@ -234,13 +264,19 @@ export const mockLeads: Lead[] = [
     project_name: 'API Gateway',
     final_work_completion_date: '10-11-2024',
     revisied_work_completion_date: '12-11-2024',
-    original_work_completion_date: '08-11-2024',
     unit_basis_commercial: 180000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '15-11-2024',
     client_incharge_approval: 'Rejected',
     client_incharge_approval_date: '18-11-2024',
-    created_at: '2024-10-30'
+    "Original_Work_Completion_Date": '08-11-2024',
+    projectid: 'PROJ-010',
+    "Zone": 'East',
+    "City": 'Kolkata',
+    "State": 'West Bengal',
+    "TC Code": 'TC010',
+    "Role": 'Architect',
+    "Shift": 'Day'
   },
   {
     lead_id: 'LEAD-006',
@@ -248,13 +284,19 @@ export const mockLeads: Lead[] = [
     project_name: 'Cloud Migration',
     final_work_completion_date: null,
     revisied_work_completion_date: null,
-    original_work_completion_date: '20-02-2025',
     unit_basis_commercial: 250000.00,
     project_incharge_approval: 'Pending',
     project_incharge_approval_date: null,
     client_incharge_approval: 'Pending',
     client_incharge_approval_date: null,
-    created_at: '2024-12-10'
+    "Original_Work_Completion_Date": '20-02-2025',
+    projectid: 'PROJ-001',
+    "Zone": 'North',
+    "City": 'Delhi',
+    "State": 'Delhi',
+    "TC Code": 'TC001',
+    "Role": 'Developer',
+    "Shift": 'Day'
   }
 ];
 

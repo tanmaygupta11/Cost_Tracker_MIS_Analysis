@@ -72,13 +72,18 @@ export const fetchValidations = async (filters?: {
 
 // Leads table queries - with pagination support and performance optimization
 export const fetchLeads = async (projectId?: string, filters?: {
-  status?: string;
+  projectInchargeApproval?: string;
+  clientInchargeApproval?: string;
   workDateFrom?: string;
   workDateTo?: string;
   clientDateFrom?: string;
   clientDateTo?: string;
-  customerId?: string;
   revMonth?: string;
+  zone?: string;
+  city?: string;
+  state?: string;
+  role?: string;
+  shift?: string;
 }, page: number = 0) => {
   const PAGE_SIZE = 1000; // Load 1000 records per batch
   const from = page * PAGE_SIZE;
@@ -93,11 +98,40 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
 
   // Add additional filters if provided
-  if (filters?.status) {
-    query = query.eq('lead_status', filters.status);
+  if (filters?.projectInchargeApproval) {
+    query = query.eq('project_incharge_approval', filters.projectInchargeApproval);
   }
-  if (filters?.customerId) {
-    query = query.eq('customer_id', filters.customerId);
+  if (filters?.clientInchargeApproval) {
+    query = query.eq('client_incharge_approval', filters.clientInchargeApproval);
+  }
+  if (filters?.zone) {
+    query = query.eq('Zone', filters.zone);
+  }
+  if (filters?.city) {
+    query = query.eq('City', filters.city);
+  }
+  if (filters?.state) {
+    query = query.eq('State', filters.state);
+  }
+  if (filters?.role) {
+    query = query.eq('Role', filters.role);
+  }
+  if (filters?.shift) {
+    query = query.eq('Shift', filters.shift);
+  }
+  
+  // Date range filters
+  if (filters?.workDateFrom) {
+    query = query.gte('final_work_completion_date', filters.workDateFrom);
+  }
+  if (filters?.workDateTo) {
+    query = query.lte('final_work_completion_date', filters.workDateTo);
+  }
+  if (filters?.clientDateFrom) {
+    query = query.gte('client_incharge_approval_date', filters.clientDateFrom);
+  }
+  if (filters?.clientDateTo) {
+    query = query.lte('client_incharge_approval_date', filters.clientDateTo);
   }
   
   // If revMonth is provided, filter by matching month and year
@@ -132,18 +166,18 @@ export const fetchLeads = async (projectId?: string, filters?: {
 // Update lead approval status
 export const updateLeadApproval = async (
   leadId: string,
-  approval: 'Approved' | 'Rejected',
+  approval: 'Approved' | 'Rejected' | 'Pending',
   approvalType: 'client_incharge_approval' | 'project_incharge_approval'
 ) => {
   const updateData: any = {
     [approvalType]: approval,
   };
 
-  // Set approval date if it's not already set
+  // Set approval date if approved, clear if rejected/pending
   if (approvalType === 'client_incharge_approval') {
-    updateData.client_incharge_approval_date = new Date().toISOString();
+    updateData.client_incharge_approval_date = approval === 'Approved' ? new Date().toISOString() : null;
   } else if (approvalType === 'project_incharge_approval') {
-    updateData.project_incharge_approval_date = new Date().toISOString();
+    updateData.project_incharge_approval_date = approval === 'Approved' ? new Date().toISOString() : null;
   }
 
   return supabase
@@ -152,23 +186,39 @@ export const updateLeadApproval = async (
     .eq('lead_id', leadId);
 };
 
-// Bulk approve leads - only update approval date
-export const bulkApproveLeads = async (leadIds: string[]) => {
+// Bulk approve leads - update both approval status and date
+export const bulkApproveLeads = async (leadIds: string[], approvalType: 'client_incharge_approval' | 'project_incharge_approval' = 'client_incharge_approval') => {
+  const updateData: any = {
+    [approvalType]: 'Approved',
+  };
+  
+  if (approvalType === 'client_incharge_approval') {
+    updateData.client_incharge_approval_date = new Date().toISOString();
+  } else {
+    updateData.project_incharge_approval_date = new Date().toISOString();
+  }
+
   return supabase
     .from('leads')
-    .update({ 
-      client_incharge_approval_date: new Date().toISOString() 
-    } as any)
+    .update(updateData)
     .in('lead_id', leadIds);
 };
 
-// Bulk reject leads - set approval date to null
-export const bulkRejectLeads = async (leadIds: string[]) => {
+// Bulk reject leads - set approval status to rejected and clear date
+export const bulkRejectLeads = async (leadIds: string[], approvalType: 'client_incharge_approval' | 'project_incharge_approval' = 'client_incharge_approval') => {
+  const updateData: any = {
+    [approvalType]: 'Rejected',
+  };
+  
+  if (approvalType === 'client_incharge_approval') {
+    updateData.client_incharge_approval_date = null;
+  } else {
+    updateData.project_incharge_approval_date = null;
+  }
+
   return supabase
     .from('leads')
-    .update({ 
-      client_incharge_approval_date: null 
-    } as any)
+    .update(updateData)
     .in('lead_id', leadIds);
 };
 
@@ -248,4 +298,19 @@ export const getStatusBadge = (status: string | null): { variant: "default" | "s
     default:
       return { variant: 'secondary', className: 'bg-gray-100 text-gray-800' };
   }
+};
+
+// Update revised work completion date for a single lead
+export const updateLeadRevisedDate = async (leadId: string, revisedDate: string | null) => {
+  const { data, error } = await supabase
+    .from('leads')
+    .update({ revisied_work_completion_date: revisedDate })
+    .eq('lead_id', leadId)
+    .select();
+
+  if (error) {
+    throw new Error(`Failed to update revised work completion date: ${error.message}`);
+  }
+
+  return data;
 };

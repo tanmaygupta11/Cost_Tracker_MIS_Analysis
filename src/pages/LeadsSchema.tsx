@@ -6,8 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { fetchLeads, formatCurrency, formatDate, getStatusBadge } from "@/lib/supabase";
+import { fetchLeads, formatCurrency, formatDate } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +16,7 @@ const LeadsSchema = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [showAdditionalColumns, setShowAdditionalColumns] = useState(false);
   const [workDateFrom, setWorkDateFrom] = useState('');
   const [workDateTo, setWorkDateTo] = useState('');
   const [clientDateFrom, setClientDateFrom] = useState('');
@@ -198,15 +198,16 @@ const LeadsSchema = () => {
         }
       }
       
-      const finalMatch = matchesQueryCustomer && matchesQueryProject && matchesWorkDate && matchesClientDate;
-      
+      const finalMatch = matchesQueryProject && 
+                         matchesWorkDate && 
+                         matchesClientDate;
       
       return finalMatch;
     });
     
     console.log(`LeadsSchema - Filtered: ${filtered.length} leads out of ${leads.length} total loaded`);
     return filtered;
-  }, [leads, workDateFrom, workDateTo, clientDateFrom, clientDateTo, customerId, projectId]);
+  }, [leads, projectId, workDateFrom, workDateTo, clientDateFrom, clientDateTo]);
 
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
@@ -239,32 +240,43 @@ const LeadsSchema = () => {
     
     // CSV headers matching all visible table columns
     const headers = [
+      'Lead ID',
       'Project ID',
       'Project Name',
-      'Lead ID',
-      'Revised Work Completion Date',
+      'Final Work Completion Date',
       'Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
+      'Revised Work Completion Date',
       'Client Incharge Approval',
-      'Client Incharge Approval Date'
+      'Client Incharge Approval Date',
+      ...(showAdditionalColumns ? ['Zone', 'City', 'State', 'TC Code', 'Role', 'Shift'] : [])
     ];
 
     // Convert data to CSV format
     const csvContent = [
       headers.join(','),
       ...selectedLeadsData.map(lead => [
-        lead.project_id || '',
-        (lead as any).project_name || '',
         lead.lead_id,
-        formatDate((lead as any).revisied_work_completion_date),
-        formatDate((lead as any).original_work_completion_date),
-        (lead as any).unit_basis_commercial || '',
-        (lead as any).project_incharge_approval || '',
-        formatDate((lead as any).project_incharge_approval_date),
-        (lead as any).client_incharge_approval || '',
-        formatDate((lead as any).client_incharge_approval_date)
+        lead.project_id || '',
+        lead.project_name || '',
+        formatDate(lead.final_work_completion_date),
+        formatDate(lead["Original_Work_Completion_Date"]),
+        lead.unit_basis_commercial || '',
+        lead.project_incharge_approval || '',
+        formatDate(lead.project_incharge_approval_date),
+        formatDate(lead.revisied_work_completion_date),
+        lead.client_incharge_approval || '',
+        formatDate(lead.client_incharge_approval_date),
+        ...(showAdditionalColumns ? [
+          lead["Zone"] || '',
+          lead["City"] || '',
+          lead["State"] || '',
+          lead["TC Code"] || '',
+          lead["Role"] || '',
+          lead["Shift"] || ''
+        ] : [])
       ].map(field => `"${field}"`).join(','))
     ].join('\n');
 
@@ -332,6 +344,16 @@ const LeadsSchema = () => {
           )}
         </div>
 
+        <div className="mb-4">
+          <Button
+            onClick={() => setShowAdditionalColumns(!showAdditionalColumns)}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {showAdditionalColumns ? 'Hide Additional Columns' : 'Show Additional Columns'}
+          </Button>
+        </div>
+
         <div className="bg-card rounded-lg border border-border p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -343,19 +365,19 @@ const LeadsSchema = () => {
             </div>
           ) : (
             <>
-          <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
+          <div className="flex flex-wrap gap-3 items-end justify-between mb-6">
             <div className="flex flex-wrap gap-3 flex-1">
               {/* Work Completion Date Range Filter */}
-              <div className="flex items-center gap-2 min-w-[280px]">
-                <label className="text-sm font-medium whitespace-nowrap">Work Completion Date:</label>
-                <div className="flex gap-1">
+              <div className="flex-1 min-w-[280px]">
+                <label className="text-sm font-medium mb-2 block">Work Completion Date</label>
+                <div className="flex gap-2 items-center">
                   <input
                     type="date"
                     value={workDateFrom}
                     onChange={(e) => setWorkDateFrom(e.target.value)}
                     min={minDate}
                     max={maxDate}
-                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="From"
                   />
                   <span className="text-sm text-muted-foreground">to</span>
@@ -365,23 +387,23 @@ const LeadsSchema = () => {
                     onChange={(e) => setWorkDateTo(e.target.value)}
                     min={minDate}
                     max={maxDate}
-                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="To"
                   />
                 </div>
               </div>
-              
+
               {/* Client Approval Date Range Filter */}
-              <div className="flex items-center gap-2 min-w-[280px]">
-                <label className="text-sm font-medium whitespace-nowrap">Client Approval Date:</label>
-                <div className="flex gap-1">
+              <div className="flex-1 min-w-[280px]">
+                <label className="text-sm font-medium mb-2 block">Client Approval Date</label>
+                <div className="flex gap-2 items-center">
                   <input
                     type="date"
                     value={clientDateFrom}
                     onChange={(e) => setClientDateFrom(e.target.value)}
                     min={minDate}
                     max={maxDate}
-                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="From"
                   />
                   <span className="text-sm text-muted-foreground">to</span>
@@ -391,21 +413,23 @@ const LeadsSchema = () => {
                     onChange={(e) => setClientDateTo(e.target.value)}
                     min={minDate}
                     max={maxDate}
-                    className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background"
                     placeholder="To"
                   />
                 </div>
               </div>
-              
-              <Button 
-                variant="outline" 
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
-                className={`flex items-center gap-2 ${!hasActiveFilters ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <X className="h-4 w-4" />
-                Clear Filters
-              </Button>
+
+              <div className="flex items-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters}
+                  disabled={!hasActiveFilters}
+                  className={`rounded-xl ${!hasActiveFilters ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              </div>
             </div>
             
             {selectedLeads.length > 0 && (
@@ -420,7 +444,7 @@ const LeadsSchema = () => {
           </div>
 
           <div className="bg-card rounded-xl border border-border w-full overflow-x-auto table-container">
-            <Table className="w-full" style={{ minWidth: '1500px' }}>
+            <Table className="w-full" style={{ minWidth: showAdditionalColumns ? '2000px' : '1400px' }}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-center">
@@ -429,11 +453,28 @@ const LeadsSchema = () => {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
+                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
-                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Work Completion Date</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Project Incharge Approval</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Work</div>
+                      <div>Completion Date</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-32 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Unit Basis</div>
+                      <div>Commercial</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Project Incharge</div>
+                      <div>Approval</div>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Project Incharge</div>
@@ -446,19 +487,34 @@ const LeadsSchema = () => {
                       <div>Completion Date</div>
                     </div>
                   </TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Client Incharge Approval</TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
+                      <div>Client Incharge</div>
+                      <div>Approval</div>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">
                     <div>
                       <div>Client Incharge</div>
                       <div>Approval Date</div>
                     </div>
                   </TableHead>
+                  {showAdditionalColumns && (
+                    <>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Zone</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">City</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">State</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">TC Code</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Role</TableHead>
+                      <TableHead className="w-32 text-center whitespace-normal break-words">Shift</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-12">
+                    <TableCell colSpan={showAdditionalColumns ? 18 : 12} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
                         {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
                           ? "No records found for the selected date range."
@@ -487,15 +543,27 @@ const LeadsSchema = () => {
                             onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
                           />
                         </TableCell>
-                        <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
-                        <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{(lead as any).project_name || lead.lead_name || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).Original_Work_Completion_Date || (lead as any).original_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{(lead as any).project_incharge_approval || '—'}</TableCell>
-                        <TableCell className="w-48 text-center">{formatDate((lead as any).project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{(lead as any).client_incharge_approval || '—'}</TableCell>
-                        <TableCell className="w-48 text-center">{formatDate((lead as any).client_incharge_approval_date)}</TableCell>
+                        <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
+                        <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate(lead["Original_Work_Completion_Date"])}</TableCell>
+                        <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
+                        <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
+                        <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate(lead.revisied_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{lead.client_incharge_approval || '—'}</TableCell>
+                        <TableCell className="w-48 text-center">{formatDate(lead.client_incharge_approval_date)}</TableCell>
+                        {showAdditionalColumns && (
+                          <>
+                            <TableCell className="w-32 text-center">{lead["Zone"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["City"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["State"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["TC Code"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["Role"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{lead["Shift"] || '—'}</TableCell>
+                          </>
+                        )}
                       </TableRow>
                     );
                   })
