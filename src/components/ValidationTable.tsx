@@ -24,6 +24,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [customerFilter, setCustomerFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
+  const [projectIdFilter, setProjectIdFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState(' ');
   // NEW: Dynamic dropdown state management
   const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
@@ -125,6 +126,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   // NEW: Check if any filters are active
   const hasActiveFilters = customerFilter || 
                           projectFilter || 
+                          projectIdFilter || 
                           statusFilter !== ' ' || 
                           selectedYear || 
                           selectedMonth;
@@ -142,6 +144,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     let filtered = data.filter(item => {
       const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
       const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
+      const matchesProjectId = !projectIdFilter || (item.project_id && item.project_id.toLowerCase().includes(projectIdFilter.toLowerCase()));
       const matchesStatus = !statusFilter || statusFilter === ' ' || item.validation_status === statusFilter;
       
       // NEW: Updated month filtering logic for dynamic dropdown
@@ -165,7 +168,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       }
       // If neither selected, show all records (matchesMonth remains true)
       
-      return matchesCustomer && matchesProject && matchesStatus && matchesMonth;
+      return matchesCustomer && matchesProject && matchesProjectId && matchesStatus && matchesMonth;
     });
 
     filtered.sort((a, b) => {
@@ -186,7 +189,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     });
 
     return filtered;
-  }, [data, sortField, sortOrder, customerFilter, projectFilter, statusFilter, selectedYear, selectedMonth]);
+  }, [data, sortField, sortOrder, customerFilter, projectFilter, projectIdFilter, statusFilter, selectedYear, selectedMonth]);
 
   const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -229,6 +232,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const clearFilters = () => {
     setCustomerFilter('');
     setProjectFilter('');
+    setProjectIdFilter('');
     setStatusFilter(' ');
     setSelectedYear('');
     setSelectedMonth('');
@@ -251,6 +255,12 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             placeholder="Filter by project name"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
+            className="max-w-[200px]"
+          />
+          <Input
+            placeholder="Filter by project ID"
+            value={projectIdFilter}
+            onChange={(e) => setProjectIdFilter(e.target.value)}
             className="max-w-[200px]"
           />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
