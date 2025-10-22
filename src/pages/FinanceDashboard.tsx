@@ -11,6 +11,55 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
+// Custom label renderer with callout arrow for Pie slices
+const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
+  const RADIAN = Math.PI / 180;
+  const sin = Math.sin(-RADIAN * midAngle);
+  const cos = Math.cos(-RADIAN * midAngle);
+  const sx = cx + (outerRadius + 8) * cos;
+  const sy = cy + (outerRadius + 8) * sin;
+  const mx = cx + (outerRadius + 18) * cos;
+  const my = cy + (outerRadius + 18) * sin;
+  const ex = mx + (cos >= 0 ? 12 : -12);
+  const ey = my;
+  const textAnchor = cos >= 0 ? 'start' : 'end';
+  const label = `${name}: ${(percent * 100).toFixed(0)}%`;
+  
+  // Arrow head points
+  const arrowHeadSize = 4;
+  const arrowHead1x = ex + (cos >= 0 ? -arrowHeadSize : arrowHeadSize);
+  const arrowHead1y = ey - arrowHeadSize;
+  const arrowHead2x = ex + (cos >= 0 ? -arrowHeadSize : arrowHeadSize);
+  const arrowHead2y = ey + arrowHeadSize;
+  
+  return (
+    <g>
+      {/* Main arrow line */}
+      <polyline 
+        points={`${sx},${sy} ${mx},${my} ${ex},${ey}`} 
+        stroke="#374151" 
+        strokeWidth="2"
+        fill="none" 
+      />
+      {/* Arrow head */}
+      <polygon 
+        points={`${ex},${ey} ${arrowHead1x},${arrowHead1y} ${arrowHead2x},${arrowHead2y}`}
+        fill="#374151"
+      />
+      {/* Label text */}
+      <text 
+        x={ex + (cos >= 0 ? 8 : -8)} 
+        y={ey} 
+        textAnchor={textAnchor} 
+        dominantBaseline="central" 
+        className="text-sm font-medium fill-gray-700"
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
 // Helper function to extract YYYY-MM format from date string
 const extractYearMonth = (dateString: string | null): string | null => {
   if (!dateString) return null;
@@ -414,12 +463,12 @@ const FinanceDashboard = () => {
             {revenueShare.length > 0 ? (
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
-                  <Pie
+                <Pie
                     data={revenueShare}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={renderPieLabel}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
@@ -507,29 +556,32 @@ const FinanceDashboard = () => {
 
         {/* Third Row - Incomplete Files and Empty Space */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <AnalyticsCard title="Incomplete Validation Files by Month">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={incompleteFilesByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }} 
-                />
-                <Legend />
-                <Bar 
-                  dataKey="incomplete" 
-                  fill="#f59e0b"
-                  name="Incomplete Files"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </AnalyticsCard>
+          {/* Only show incomplete files chart if there are incomplete validations */}
+          {incompleteFilesByMonth.some(item => item.incomplete > 0) && (
+            <AnalyticsCard title="Incomplete Validation Files by Month">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={incompleteFilesByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="incomplete" 
+                    fill="#f59e0b"
+                    name="Incomplete Files"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </AnalyticsCard>
+          )}
 
           {/* Empty space */}
           <div></div>
