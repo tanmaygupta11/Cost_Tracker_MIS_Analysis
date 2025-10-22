@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import { fetchValidations, formatCurrency, formatRevenueMonth, getStatusBadge, formatDate } from "@/lib/supabase";
-import { monthlyDashboardData, type MonthlyDashboardData } from "@/lib/clientMockData";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -256,29 +255,57 @@ const ClientDashboard = () => {
     loadValidations();
   }, [customerId, customerName]);
   
-  // Calculate filtered card data from monthly data
+  // Calculate filtered card data from real validations data
   const filteredCardData = useMemo(() => {
-    if (!selectedYear || !selectedMonth) {
-      // Show aggregate of all data when no filter
-      return {
-        totalProjects: monthlyDashboardData.reduce((sum, d) => sum + d.totalProjects, 0),
-        totalRevenue: monthlyDashboardData.reduce((sum, d) => sum + d.totalRevenue, 0),
-        approvedValidations: monthlyDashboardData.reduce((sum, d) => sum + d.approvedValidations, 0),
-        pendingValidations: monthlyDashboardData.reduce((sum, d) => sum + d.pendingValidations, 0),
-      };
-    } else {
-      // Show specific month data
-      const monthData = monthlyDashboardData.find(
-        d => d.month === `${selectedYear}-${selectedMonth}`
+    let filteredValidations = validations;
+    
+    // Apply month filter if selected
+    if (selectedYear && selectedMonth) {
+      const monthFilter = `${selectedYear}-${selectedMonth}`;
+      filteredValidations = validations.filter(validation => 
+        validation.rev_month && validation.rev_month.startsWith(monthFilter)
       );
-      return monthData || {
-        totalProjects: 0,
-        totalRevenue: 0,
-        approvedValidations: 0,
-        pendingValidations: 0,
-      };
     }
-  }, [selectedYear, selectedMonth]);
+    
+    // Calculate metrics from filtered validations
+    const uniqueProjects = new Set(
+      filteredValidations
+        .map(v => v.project_id)
+        .filter(Boolean) // Remove null/undefined values
+    );
+    
+    const totalRevenue = filteredValidations.reduce(
+      (sum, validation) => sum + (validation.revenue || 0), 
+      0
+    );
+    
+    const approvedValidations = filteredValidations.filter(
+      v => v.validation_status === 'Approved'
+    ).length;
+    
+    const pendingValidations = filteredValidations.filter(
+      v => v.validation_status === 'Pending'
+    ).length;
+    
+    return {
+      totalProjects: uniqueProjects.size,
+      totalRevenue,
+      approvedValidations,
+      pendingValidations,
+    };
+  }, [validations, selectedYear, selectedMonth]);
+
+  // Create filtered validations for charts (applies month filter)
+  const filteredValidationsForCharts = useMemo(() => {
+    if (!selectedYear || !selectedMonth) {
+      return validations; // Show all data when no filter
+    }
+    
+    const monthFilter = `${selectedYear}-${selectedMonth}`;
+    return validations.filter(validation => 
+      validation.rev_month && validation.rev_month.startsWith(monthFilter)
+    );
+  }, [validations, selectedYear, selectedMonth]);
 
   // Keep original calculations for charts and validation table (unchanged)
   const totalProjects = validations.length;
@@ -286,10 +313,10 @@ const ClientDashboard = () => {
   const approvedValidations = validations.filter(v => v.validation_status === 'Approved').length;
   const pendingValidations = validations.filter(v => v.validation_status === 'Pending').length;
   
-  // Generate chart data from validations
-  const monthlyRevenue = generateMonthlyRevenue(validations);
-  const projectCountByMonth = generateProjectCountByMonth(validations);
-  const revenueTrends = generateRevenueTrends(validations);
+  // Generate chart data from filtered validations (applies month filter to graphs)
+  const monthlyRevenue = generateMonthlyRevenue(filteredValidationsForCharts);
+  const projectCountByMonth = generateProjectCountByMonth(filteredValidationsForCharts);
+  const revenueTrends = generateRevenueTrends(filteredValidationsForCharts);
   const totalPages = Math.ceil(validations.length / recordsPerPage);
   
   // Calculate paginated validations
