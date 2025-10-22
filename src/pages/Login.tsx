@@ -45,13 +45,13 @@ const Login = () => {
     
     // Validate credentials based on selected role
     if (selectedRole === 'finance') {
-      if (email === 'finance@demo.com' && password === 'demo123') {
+      if (email === 'finance.team@awign.com' && password === 'finance@303') {
         navigate('/finance-dashboard');
       } else {
         setError('Invalid credentials. Please try again.');
       }
     } else if (selectedRole === 'client') {
-      if (email === 'client@demo.com' && password === 'demo123') {
+      if (email === 'blackbuck.client@gmail.com' && password === 'blackbuck@123') {
         // Client login: Show BlackBuck customer data (C137)
         setClient('C137', 'BlackBuck');
         navigate('/client-dashboard');
@@ -157,13 +157,7 @@ const Login = () => {
             </form>
           )}
 
-          {/* Sample Credentials - Always Visible */}
-          <div className="mt-6 p-4 bg-muted rounded-lg text-sm text-muted-foreground">
-            <p className="font-medium mb-2">Use sample credentials for now:</p>
-            <p>Finance → finance@demo.com / demo123</p>
-            <p>Client → client@demo.com / demo123</p>
-            <p className="mt-2 text-xs italic">I'll integrate real Supabase Auth later.</p>
-          </div>
+          {/* Removed sample credentials block as per requirement */}
         </CardContent>
       </Card>
     </div>
