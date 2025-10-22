@@ -14,15 +14,34 @@ import { useClient } from "@/contexts/ClientContext";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
+// Helper function to extract YYYY-MM format from date string
+const extractYearMonth = (dateString: string | null): string | null => {
+  if (!dateString) return null;
+  
+  try {
+    // Parse the date and extract YYYY-MM with leading zeros
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  } catch {
+    return null;
+  }
+};
+
 // Helper functions to generate chart data from validations
 const generateMonthlyRevenue = (validations: Validation[]) => {
   const monthMap = new Map<string, number>();
   
   validations.forEach(validation => {
     if (validation.rev_month && validation.revenue) {
-      // Extract YYYY-MM from YYYY-MM-DD format
-      const monthKey = validation.rev_month.substring(0, 7); // Gets "2024-04" from "2024-04-15"
-      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+      // Extract YYYY-MM format consistently
+      const monthKey = extractYearMonth(validation.rev_month);
+      if (monthKey) {
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+      }
     }
   });
   
@@ -40,14 +59,16 @@ const generateProjectCountByMonth = (validations: Validation[]) => {
   
   validations.forEach(validation => {
     if (validation.rev_month && validation.project_id) {
-      const monthKey = validation.rev_month.substring(0, 7); // "2024-08"
+      const monthKey = extractYearMonth(validation.rev_month);
       
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, new Set());
+      if (monthKey) {
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, new Set());
+        }
+        
+        // Add project_id to Set (automatically handles uniqueness)
+        monthMap.get(monthKey)!.add(validation.project_id);
       }
-      
-      // Add project_id to Set (automatically handles uniqueness)
-      monthMap.get(monthKey)!.add(validation.project_id);
     }
   });
   
@@ -65,8 +86,10 @@ const generateRevenueTrends = (validations: Validation[]) => {
   
   validations.forEach(validation => {
     if (validation.rev_month && validation.revenue) {
-      const monthKey = validation.rev_month;
-      monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+      const monthKey = extractYearMonth(validation.rev_month);
+      if (monthKey) {
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+      }
     }
   });
   
@@ -100,13 +123,17 @@ const formatMonthForChart = (monthString: string) => {
         const [, year, month] = monthMatch;
         const fallbackDate = new Date(parseInt(year), parseInt(month) - 1, 1);
         if (!isNaN(fallbackDate.getTime())) {
-          return fallbackDate.toLocaleDateString('en-US', { month: 'short' });
+          const shortMonth = fallbackDate.toLocaleDateString('en-US', { month: 'short' });
+          const shortYear = fallbackDate.getFullYear().toString().slice(-2);
+          return `${shortMonth} ${shortYear}`;
         }
       }
       return 'Unknown';
     }
     
-    return date.toLocaleDateString('en-US', { month: 'short' });
+    const shortMonth = date.toLocaleDateString('en-US', { month: 'short' });
+    const shortYear = date.getFullYear().toString().slice(-2);
+    return `${shortMonth} ${shortYear}`;
   } catch (error) {
     return 'Unknown';
   }
@@ -417,7 +444,7 @@ const ClientDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
                 <p className="text-2xl font-bold text-primary">
-                  ₹{(filteredCardData.totalRevenue / 100000).toFixed(1)}L
+                  ₹{(filteredCardData.totalRevenue / 10000000).toFixed(1)}Cr
                 </p>
               </div>
               <div className="p-3 bg-accent/10 rounded-lg">
@@ -463,10 +490,12 @@ const ClientDashboard = () => {
                   <YAxis 
                     stroke="hsl(var(--muted-foreground))"
                     tickFormatter={(value) => {
-                      if (value >= 1000000) {
-                        return `${(value / 1000000).toFixed(1)}M`;
-                      } else if (value >= 1000) {
-                        return `${(value / 1000).toFixed(1)}K`;
+                      // Convert to Crores (1 Cr = 10,000,000)
+                      if (value >= 10000000) {
+                        return `${(value / 10000000).toFixed(1)} Cr`;
+                      } else if (value >= 100000) {
+                        // Show Lakhs for mid-range values
+                        return `${(value / 100000).toFixed(1)} L`;
                       }
                       return value.toString();
                     }}
@@ -497,7 +526,11 @@ const ClientDashboard = () => {
               <BarChart data={projectCountByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  allowDecimals={false}
+                  tickFormatter={(value) => Math.round(value).toString()}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',

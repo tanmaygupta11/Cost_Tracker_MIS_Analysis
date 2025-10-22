@@ -243,7 +243,7 @@ const LeadsSchema = () => {
       'Lead ID',
       'Project ID',
       'Project Name',
-      'Final Work Completion Date',
+      // 'Final Work Completion Date',
       'Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
@@ -261,7 +261,7 @@ const LeadsSchema = () => {
         lead.lead_id,
         lead.project_id || '',
         lead.project_name || '',
-        formatDate(lead.final_work_completion_date),
+        // formatDate(lead.final_work_completion_date),
         formatDate(lead["Original_Work_Completion_Date"]),
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
@@ -456,7 +456,7 @@ const LeadsSchema = () => {
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
-                  <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead>
+                  {/* <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead> */}
                   <TableHead className="w-44 text-center whitespace-normal break-words">
                     <div>
                       <div>Work</div>
@@ -546,7 +546,7 @@ const LeadsSchema = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell>
+                        {/* <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell> */}
                         <TableCell className="w-44 text-center">{formatDate(lead["Original_Work_Completion_Date"])}</TableCell>
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
