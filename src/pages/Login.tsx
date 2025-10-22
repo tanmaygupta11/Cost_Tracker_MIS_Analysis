@@ -55,6 +55,10 @@ const Login = () => {
         // Client login: Show BlackBuck customer data (C137)
         setClient('C137', 'BlackBuck');
         navigate('/client-dashboard');
+      } else if (email === 'tatacs.client@gmail.com' && password === 'tcs@321') {
+        // Client login: Show TCS customer data (C65)
+        setClient('C65', 'TCS');
+        navigate('/client-dashboard');
       } else {
         setError('Invalid credentials. Please try again.');
       }
