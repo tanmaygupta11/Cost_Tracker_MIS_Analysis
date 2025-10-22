@@ -66,8 +66,19 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url('/images/BG.png')`,
+        }}
+      ></div>
+      
+      {/* Overlay for better card visibility */}
+      <div className="absolute inset-0 bg-black/20"></div>
+      
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-md relative z-10">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-2">
             <img 
