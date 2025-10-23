@@ -609,11 +609,12 @@ const ClientDashboard = () => {
                             console.log('Full validation object:', validation);
                             console.log('rev_month value:', validation.rev_month);
                             console.log('rev_month type:', typeof validation.rev_month);
+                            console.log('validation_status:', validation.validation_status);
                             console.log('formatted display:', formatRevenueMonth(validation.rev_month));
-                            console.log('URL will be:', `/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}`);
+                            console.log('URL will be:', `/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}`);
                             console.log('=====================================');
                             
-                            navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}`);
+                            navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}`);
                           }}
                           variant="outline"
                           size="sm"

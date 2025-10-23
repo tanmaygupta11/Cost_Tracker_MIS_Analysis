@@ -381,9 +381,10 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                       console.log('=== DEBUG: View Leads Clicked (ValidationTable) ===');
                       console.log('Full validation object:', row);
                       console.log('rev_month value:', row.rev_month);
-                      console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
+                      console.log('validation_status:', row.validation_status);
+                      console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}&validation_status=${row.validation_status}`);
                       console.log('=====================================');
-                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
+                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}&validation_status=${row.validation_status}`);
                     }}
                     variant="outline"
                     size="sm"

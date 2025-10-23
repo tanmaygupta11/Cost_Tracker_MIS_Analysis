@@ -84,6 +84,7 @@ export const fetchLeads = async (projectId?: string, filters?: {
   state?: string;
   role?: string;
   shift?: string;
+  status?: string;
 }, page: number = 0) => {
   const PAGE_SIZE = 1000; // Load 1000 records per batch
   const from = page * PAGE_SIZE;
@@ -118,6 +119,9 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
   if (filters?.shift) {
     query = query.eq('Shift', filters.shift);
+  }
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
   }
   
   // Date range filters
@@ -162,6 +166,165 @@ export const fetchLeads = async (projectId?: string, filters?: {
   return { data, error: null };
 };
 
+// Fetch all leads without pagination limits - for download functionality
+export const fetchAllLeads = async (projectId?: string, filters?: {
+  projectInchargeApproval?: string;
+  clientInchargeApproval?: string;
+  workDateFrom?: string;
+  workDateTo?: string;
+  clientDateFrom?: string;
+  clientDateTo?: string;
+  revMonth?: string;
+  zone?: string;
+  city?: string;
+  state?: string;
+  role?: string;
+  shift?: string;
+  status?: string;
+}) => {
+  console.log('fetchAllLeads - Fetching all leads with filters:', { projectId, filters });
+
+  let query = supabase.from('leads').select('*');
+
+  if (projectId) {
+    query = query.eq('project_id', projectId);
+  }
+
+  // Add additional filters if provided
+  if (filters?.projectInchargeApproval) {
+    query = query.eq('project_incharge_approval', filters.projectInchargeApproval);
+  }
+  if (filters?.clientInchargeApproval) {
+    query = query.eq('client_incharge_approval', filters.clientInchargeApproval);
+  }
+  if (filters?.zone) {
+    query = query.eq('Zone', filters.zone);
+  }
+  if (filters?.city) {
+    query = query.eq('City', filters.city);
+  }
+  if (filters?.state) {
+    query = query.eq('State', filters.state);
+  }
+  if (filters?.role) {
+    query = query.eq('Role', filters.role);
+  }
+  if (filters?.shift) {
+    query = query.eq('Shift', filters.shift);
+  }
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+  
+  // Date range filters
+  if (filters?.workDateFrom) {
+    query = query.gte('final_work_completion_date', filters.workDateFrom);
+  }
+  if (filters?.workDateTo) {
+    query = query.lte('final_work_completion_date', filters.workDateTo);
+  }
+  if (filters?.clientDateFrom) {
+    query = query.gte('client_incharge_approval_date', filters.clientDateFrom);
+  }
+  if (filters?.clientDateTo) {
+    query = query.lte('client_incharge_approval_date', filters.clientDateTo);
+  }
+  
+  // If revMonth is provided, filter by matching month and year
+  if (filters?.revMonth) {
+    const yearMonth = filters.revMonth.substring(0, 7);
+    const year = parseInt(yearMonth.substring(0, 4));
+    const month = parseInt(yearMonth.substring(5, 7));
+    const lastDay = new Date(year, month, 0).getDate();
+    
+    query = query.gte('final_work_completion_date', `${yearMonth}-01`)
+                 .lte('final_work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
+  }
+
+  const { data, error } = await query
+    .order('lead_id', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching all leads:', error);
+    return { data: null, error };
+  }
+
+  console.log(`fetchAllLeads - Fetched ${data?.length || 0} total records`);
+  return { data, error: null };
+};
+
+// Export leads to CSV
+export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') => {
+  if (!leads || leads.length === 0) {
+    console.warn('No leads data to export');
+    return;
+  }
+
+  // Define CSV headers
+  const headers = [
+    'Lead ID',
+    'Project ID', 
+    'Project Name',
+    'Final Work Completion Date',
+    'Revised Work Completion Date',
+    'Unit Basis Commercial',
+    'Project Incharge Approval',
+    'Project Incharge Approval Date',
+    'Client Incharge Approval',
+    'Client Incharge Approval Date',
+    'Original Work Completion Date',
+    'Project ID (Alt)',
+    'Zone',
+    'City',
+    'State',
+    'TC Code',
+    'Role',
+    'Shift',
+    'Status'
+  ];
+
+  // Convert leads data to CSV format
+  const csvData = leads.map(lead => [
+    lead.lead_id || '',
+    lead.project_id || '',
+    lead.project_name || '',
+    lead.final_work_completion_date || '',
+    lead.revisied_work_completion_date || '',
+    lead.unit_basis_commercial || '',
+    lead.project_incharge_approval || '',
+    lead.project_incharge_approval_date || '',
+    lead.client_incharge_approval || '',
+    lead.client_incharge_approval_date || '',
+    lead['Original_Work_Completion_Date'] || '',
+    lead.projectid || '',
+    lead.Zone || '',
+    lead.City || '',
+    lead.State || '',
+    lead['TC Code'] || '',
+    lead.Role || '',
+    lead.Shift || '',
+    lead.status || ''
+  ]);
+
+  // Create CSV content
+  const csvContent = [
+    headers.join(','),
+    ...csvData.map(row => row.map(field => `"${field}"`).join(','))
+  ].join('\n');
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  console.log(`Exported ${leads.length} leads to ${filename}`);
+};
 
 // Update lead approval status
 export const updateLeadApproval = async (

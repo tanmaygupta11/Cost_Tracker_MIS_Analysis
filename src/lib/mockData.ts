@@ -31,6 +31,7 @@ export interface Lead {
   "TC Code": string | null;
   "Role": string | null;
   "Shift": string | null;
+  status: string | null;
 }
 
 export interface ProjectData {

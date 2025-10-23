@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { fetchLeads, formatCurrency, formatDate } from "@/lib/supabase";
+import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -27,14 +27,16 @@ const LeadsSchema = () => {
   const [currentBatch, setCurrentBatch] = useState(0);
   const [hasMoreData, setHasMoreData] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
   const projectId = searchParams.get('project_id');
   const revMonth = searchParams.get('rev_month');
+  const validationStatus = searchParams.get('validation_status');
   
-  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth });
+  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth, validationStatus });
   
   // Calculate min/max dates for date pickers based on rev_month
   let minDate = '';
@@ -55,8 +57,16 @@ const LeadsSchema = () => {
       try {
         setLoading(true);
         setCurrentBatch(0);
-        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth);
-        const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, 0);
+        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth, 'validationStatus:', validationStatus);
+        
+        // Apply status filter based on validation status
+        const filters: any = { revMonth: revMonth || undefined };
+        if (validationStatus === 'Approved') {
+          filters.status = 'Completed';
+        }
+        // If validationStatus is 'Rejected' or any other status, don't add status filter
+        
+        const { data, error } = await fetchLeads(projectId || undefined, filters, 0);
         
         console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
         
@@ -86,7 +96,14 @@ const LeadsSchema = () => {
       const nextBatch = currentBatch + 1;
       console.log('LeadsSchema - Loading more leads, batch:', nextBatch);
       
-      const { data, error } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, nextBatch);
+      // Apply status filter based on validation status
+      const filters: any = { revMonth: revMonth || undefined };
+      if (validationStatus === 'Approved') {
+        filters.status = 'Completed';
+      }
+      // If validationStatus is 'Rejected' or any other status, don't add status filter
+      
+      const { data, error } = await fetchLeads(projectId || undefined, filters, nextBatch);
       
       if (error) {
         console.error('Error fetching more leads:', error);
@@ -125,6 +142,64 @@ const LeadsSchema = () => {
       });
     } finally {
       setLoadingMore(false);
+    }
+  };
+
+  // Download all leads handler
+  const handleDownloadAll = async () => {
+    try {
+      setDownloading(true);
+      
+      // Apply status filter based on validation status
+      const filters: any = { revMonth: revMonth || undefined };
+      if (validationStatus === 'Approved') {
+        filters.status = 'Completed';
+      }
+      
+      console.log('Downloading all leads with filters:', { projectId, filters });
+      
+      const { data, error } = await fetchAllLeads(projectId || undefined, filters);
+      
+      if (error) {
+        console.error('Error fetching all leads:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch leads for download. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No data",
+          description: "No leads found matching the current filters.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `leads_${projectId || 'all'}_${timestamp}.csv`;
+      
+      // Export to CSV
+      exportLeadsToCSV(data, filename);
+      
+      toast({
+        title: "Download Complete",
+        description: `Successfully downloaded ${data.length} leads to ${filename}`,
+      });
+      
+    } catch (err) {
+      console.error('Error downloading leads:', err);
+      toast({
+        title: "Error",
+        description: "Failed to download leads. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -344,13 +419,32 @@ const LeadsSchema = () => {
           )}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-4 flex gap-3">
           <Button
             onClick={() => setShowAdditionalColumns(!showAdditionalColumns)}
             variant="outline"
             className="flex items-center gap-2"
           >
             {showAdditionalColumns ? 'Hide Additional Columns' : 'Show Additional Columns'}
+          </Button>
+          
+          <Button
+            onClick={handleDownloadAll}
+            disabled={downloading}
+            variant="default"
+            className="flex items-center gap-2"
+          >
+            {downloading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Download All Leads
+              </>
+            )}
           </Button>
         </div>
 
