@@ -32,6 +32,7 @@ export interface Lead {
   "Role": string | null;
   "Shift": string | null;
   status: string | null;
+  validation_file_id: string | null;
 }
 
 export interface ProjectData {

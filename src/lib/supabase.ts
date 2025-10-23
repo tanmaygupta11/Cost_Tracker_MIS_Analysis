@@ -85,6 +85,7 @@ export const fetchLeads = async (projectId?: string, filters?: {
   role?: string;
   shift?: string;
   status?: string;
+  validation_file_id?: string;
 }, page: number = 0) => {
   const PAGE_SIZE = 1000; // Load 1000 records per batch
   const from = page * PAGE_SIZE;
@@ -122,6 +123,9 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
   if (filters?.status) {
     query = query.eq('status', filters.status);
+  }
+  if (filters?.validation_file_id) {
+    query = query.eq('validation_file_id', filters.validation_file_id);
   }
   
   // Date range filters
@@ -181,6 +185,7 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
   role?: string;
   shift?: string;
   status?: string;
+  validation_file_id?: string;
 }) => {
   console.log('fetchAllLeads - Fetching all leads with filters:', { projectId, filters });
 
@@ -214,6 +219,9 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
   }
   if (filters?.status) {
     query = query.eq('status', filters.status);
+  }
+  if (filters?.validation_file_id) {
+    query = query.eq('validation_file_id', filters.validation_file_id);
   }
   
   // Date range filters
@@ -280,7 +288,8 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
     'TC Code',
     'Role',
     'Shift',
-    'Status'
+    'Status',
+    'Validation File ID'
   ];
 
   // Convert leads data to CSV format
@@ -303,7 +312,8 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
     lead['TC Code'] || '',
     lead.Role || '',
     lead.Shift || '',
-    lead.status || ''
+    lead.status || '',
+    lead.validation_file_id || ''
   ]);
 
   // Create CSV content

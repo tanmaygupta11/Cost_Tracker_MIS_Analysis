@@ -35,8 +35,9 @@ const LeadsSchema = () => {
   const projectId = searchParams.get('project_id');
   const revMonth = searchParams.get('rev_month');
   const validationStatus = searchParams.get('validation_status');
+  const validationFileId = searchParams.get('validation_file_id');
   
-  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth, validationStatus });
+  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth, validationStatus, validationFileId });
   
   // Calculate min/max dates for date pickers based on rev_month
   let minDate = '';
@@ -63,8 +64,13 @@ const LeadsSchema = () => {
         const filters: any = { revMonth: revMonth || undefined };
         if (validationStatus === 'Approved') {
           filters.status = 'Completed';
+        } else if (validationStatus === 'Rejected') {
+          filters.status = 'Incomplete';
+          if (validationFileId) {
+            filters.validation_file_id = validationFileId;
+          }
         }
-        // If validationStatus is 'Rejected' or any other status, don't add status filter
+        // If validationStatus is any other status, don't add status filter
         
         const { data, error } = await fetchLeads(projectId || undefined, filters, 0);
         
@@ -100,8 +106,13 @@ const LeadsSchema = () => {
       const filters: any = { revMonth: revMonth || undefined };
       if (validationStatus === 'Approved') {
         filters.status = 'Completed';
+      } else if (validationStatus === 'Rejected') {
+        filters.status = 'Incomplete';
+        if (validationFileId) {
+          filters.validation_file_id = validationFileId;
+        }
       }
-      // If validationStatus is 'Rejected' or any other status, don't add status filter
+      // If validationStatus is any other status, don't add status filter
       
       const { data, error } = await fetchLeads(projectId || undefined, filters, nextBatch);
       
@@ -154,6 +165,11 @@ const LeadsSchema = () => {
       const filters: any = { revMonth: revMonth || undefined };
       if (validationStatus === 'Approved') {
         filters.status = 'Completed';
+      } else if (validationStatus === 'Rejected') {
+        filters.status = 'Incomplete';
+        if (validationFileId) {
+          filters.validation_file_id = validationFileId;
+        }
       }
       
       console.log('Downloading all leads with filters:', { projectId, filters });

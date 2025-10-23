@@ -610,11 +610,12 @@ const ClientDashboard = () => {
                             console.log('rev_month value:', validation.rev_month);
                             console.log('rev_month type:', typeof validation.rev_month);
                             console.log('validation_status:', validation.validation_status);
+                            console.log('validation_file_id:', validation.validation_file_id);
                             console.log('formatted display:', formatRevenueMonth(validation.rev_month));
-                            console.log('URL will be:', `/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}`);
+                            console.log('URL will be:', `/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}&validation_file_id=${validation.validation_file_id}`);
                             console.log('=====================================');
                             
-                            navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}`);
+                            navigate(`/client-leads?customer_id=${validation.customer_id}&project_id=${validation.project_id}&rev_month=${validation.rev_month}&validation_status=${validation.validation_status}&validation_file_id=${validation.validation_file_id}`);
                           }}
                           variant="outline"
                           size="sm"
