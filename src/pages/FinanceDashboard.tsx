@@ -6,8 +6,11 @@ import ValidationTable from "@/components/ValidationTable";
 import { fetchValidations, formatCurrency } from "@/lib/supabase";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, DollarSign } from "lucide-react";
-import type { Validation } from "@/lib/supabase";
+import type { MISRecord } from "@/lib/supabase";
+import { fetchActiveWorkers } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
@@ -77,37 +80,49 @@ const extractYearMonth = (dateString: string | null): string | null => {
   }
 };
 
-// Helper functions to generate chart data from validations
-const generateMonthlyRevenue = (validations: Validation[]) => {
-  const monthMap = new Map<string, number>();
+// Helper functions to generate chart data from MIS records
+const generateMonthlyRevenue = (misRecords: MISRecord[]) => {
+  const revenueMap = new Map<string, number>();
+  const costMap = new Map<string, number>();
   
-  validations.forEach(validation => {
-    if (validation.rev_month && validation.revenue) {
+  misRecords.forEach(record => {
+    if (record.rev_month) {
       // Extract YYYY-MM format consistently
-      const monthKey = extractYearMonth(validation.rev_month);
+      const monthKey = extractYearMonth(record.rev_month);
       if (monthKey) {
-        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + validation.revenue);
+        // Sum revenue
+        if (record.revenue) {
+          revenueMap.set(monthKey, (revenueMap.get(monthKey) || 0) + record.revenue);
+        }
+        // Sum cost
+        if (record.approved_cost) {
+          costMap.set(monthKey, (costMap.get(monthKey) || 0) + record.approved_cost);
+        }
       }
     }
   });
   
-  return Array.from(monthMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
+  // Get all unique months
+  const allMonths = new Set([...revenueMap.keys(), ...costMap.keys()]);
+  
+  return Array.from(allMonths)
+    .sort((a, b) => a.localeCompare(b))
     .slice(-6) // Last 6 months
-    .map(([month, totalRevenue]) => ({
+    .map(month => ({
       month: formatMonthForChart(month),
-      revenue: totalRevenue
+      revenue: revenueMap.get(month) || 0,
+      cost: costMap.get(month) || 0
     }));
 };
 
-const generateRevenueShare = (validations: Validation[]) => {
+const generateRevenueShare = (misRecords: MISRecord[]) => {
   const lobMap = new Map<string, number>();
   
-  validations.forEach(validation => {
-    // Ignore NULL or empty LOB values
-    if (validation.LOB && validation.LOB.trim() !== '' && validation.revenue) {
-      const lob = validation.LOB;
-      lobMap.set(lob, (lobMap.get(lob) || 0) + validation.revenue);
+  misRecords.forEach(record => {
+    // Ignore NULL or empty LOB values - now using lowercase 'lob'
+    if (record.lob && record.lob.trim() !== '' && record.revenue) {
+      const lob = record.lob;
+      lobMap.set(lob, (lobMap.get(lob) || 0) + record.revenue);
     }
   });
   
@@ -117,12 +132,12 @@ const generateRevenueShare = (validations: Validation[]) => {
     .slice(0, 8); // Top 8 LOBs
 };
 
-const generateCustomerCountByMonth = (validations: Validation[]) => {
+const generateCustomerCountByMonth = (misRecords: MISRecord[]) => {
   const monthMap = new Map<string, Set<string>>();
   
-  validations.forEach(validation => {
-    if (validation.rev_month && validation.customer_id) {
-      const monthKey = extractYearMonth(validation.rev_month);
+  misRecords.forEach(record => {
+    if (record.rev_month && record.customer_id) {
+      const monthKey = extractYearMonth(record.rev_month);
       
       if (monthKey) {
         if (!monthMap.has(monthKey)) {
@@ -130,7 +145,7 @@ const generateCustomerCountByMonth = (validations: Validation[]) => {
         }
         
         // Add customer_id to the Set (automatically handles uniqueness)
-        monthMap.get(monthKey)!.add(validation.customer_id);
+        monthMap.get(monthKey)!.add(record.customer_id);
       }
     }
   });
@@ -144,12 +159,12 @@ const generateCustomerCountByMonth = (validations: Validation[]) => {
     }));
 };
 
-const generateProjectCountByMonth = (validations: Validation[]) => {
+const generateProjectCountByMonth = (misRecords: MISRecord[]) => {
   const monthMap = new Map<string, Set<string>>();
   
-  validations.forEach(validation => {
-    if (validation.rev_month && validation.project_id) {
-      const monthKey = extractYearMonth(validation.rev_month);
+  misRecords.forEach(record => {
+    if (record.rev_month && record.project_id) {
+      const monthKey = extractYearMonth(record.rev_month);
       
       if (monthKey) {
         if (!monthMap.has(monthKey)) {
@@ -157,7 +172,7 @@ const generateProjectCountByMonth = (validations: Validation[]) => {
         }
         
         // Add project_id to the Set (automatically handles uniqueness)
-        monthMap.get(monthKey)!.add(validation.project_id);
+        monthMap.get(monthKey)!.add(record.project_id);
       }
     }
   });
@@ -193,6 +208,52 @@ const generateIncompleteFilesByMonth = (validations: Validation[]) => {
     .map(([month, count]) => ({
       month: formatMonthForChart(month),
       incomplete: count
+    }));
+};
+
+// Generate Margin by Month from MIS records
+const generateMarginByMonth = (misRecords: MISRecord[]) => {
+  const monthMap = new Map<string, number>();
+  
+  misRecords.forEach(record => {
+    if (record.rev_month && record.margin !== null) {
+      const monthKey = extractYearMonth(record.rev_month);
+      if (monthKey) {
+        monthMap.set(monthKey, record.margin);
+      }
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, margin]) => ({
+      month: formatMonthForChart(month),
+      margin: margin
+    }));
+};
+
+// Generate Active Workers by Month from active_workers table
+// This function will be called with activeWorkers data separately
+const generateActiveWorkersByMonth = (activeWorkers: Array<{ record_date: string | null; active_workers: number | null }>) => {
+  const monthMap = new Map<string, number>();
+  
+  activeWorkers.forEach(worker => {
+    if (worker.record_date && worker.active_workers !== null) {
+      const monthKey = extractYearMonth(worker.record_date);
+      if (monthKey) {
+        // Sum up workers for the same month if multiple records exist
+        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + worker.active_workers);
+      }
+    }
+  });
+  
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6) // Last 6 months
+    .map(([month, workers]) => ({
+      month: formatMonthForChart(month),
+      workers: workers
     }));
 };
 
@@ -235,11 +296,13 @@ const formatMonthForChart = (monthString: string) => {
 
 const FinanceDashboard = () => {
   const navigate = useNavigate();
-  const [validations, setValidations] = useState<Validation[]>([]);
+  const [misRecords, setMisRecords] = useState<MISRecord[]>([]);
+  const [activeWorkers, setActiveWorkers] = useState<Array<{ record_date: string | null; active_workers: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Filter state for Revenue Share chart
+  const [lobChartType, setLobChartType] = useState<'Revenue' | 'Cost'>('Revenue');
   const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -331,59 +394,83 @@ const FinanceDashboard = () => {
     return `${monthName} ${selectedYear}`;
   };
   
-  // Fetch validations data from Supabase
+  // Fetch MIS records and active workers data from Supabase
   useEffect(() => {
-    const loadValidations = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        const { data, error } = await fetchValidations();
         
-        if (error) {
-          console.error('Error fetching validations:', error);
-          setError('Failed to load validation data');
+        // Fetch MIS records
+        const { data: misData, error: misError } = await fetchValidations();
+        
+        if (misError) {
+          console.error('Error fetching MIS records:', misError);
+          // If table is missing, show helpful message
+          if (misError.isTableMissing || misError.code === 'PGRST205') {
+            setError('MIS records table not found. Please create the mis_records table in Supabase using create_mis_tables.sql');
+          } else {
+            setError('Failed to load MIS data');
+          }
           return;
         }
         
-        setValidations(data || []);
+        setMisRecords(misData || []);
+        
+        // Fetch active workers
+        const { data: workersData, error: workersError } = await fetchActiveWorkers();
+        
+        if (workersError) {
+          console.error('Error fetching active workers:', workersError);
+          // Don't fail completely if workers fetch fails, just log it
+        } else {
+          setActiveWorkers(workersData || []);
+        }
       } catch (err) {
-        console.error('Error loading validations:', err);
-        setError('Failed to load validation data');
+        console.error('Error loading data:', err);
+        setError('Failed to load data');
       } finally {
         setLoading(false);
       }
     };
     
-    loadValidations();
+    loadData();
   }, []);
   
   // Calculate analytics from real data
-  const totalProjects = validations.length;
-  const totalRevenue = validations.reduce((sum, validation) => sum + (validation.revenue || 0), 0);
-  const approvedValidations = validations.filter(v => v.validation_status === 'Approved').length;
-  const pendingValidations = validations.filter(v => v.validation_status === 'Pending').length;
+  const totalProjects = misRecords.length;
+  const totalRevenue = misRecords.reduce((sum, record) => sum + (record.revenue || 0), 0);
+  // Note: validation_status doesn't exist in mis_records, so we can't calculate approved/pending counts
   
-  // Generate chart data from validations
-  const monthlyRevenue = generateMonthlyRevenue(validations);
-  const customerCountByMonth = generateCustomerCountByMonth(validations);
-  const projectCountByMonth = generateProjectCountByMonth(validations);
-  const incompleteFilesByMonth = generateIncompleteFilesByMonth(validations);
+  // Generate chart data from MIS records
+  const monthlyRevenue = generateMonthlyRevenue(misRecords);
+  const customerCountByMonth = generateCustomerCountByMonth(misRecords);
+  const projectCountByMonth = generateProjectCountByMonth(misRecords);
+  // Note: generateIncompleteFilesByMonth removed as Validation_completed doesn't exist in mis_records
+  const marginByMonth = generateMarginByMonth(misRecords);
+  const activeWorkersByMonth = generateActiveWorkersByMonth(activeWorkers);
   
-  // Filtered revenue share based on selected month
+  // Filtered revenue share based on selected month and chart type
   const revenueShare = useMemo(() => {
+    // If Cost is selected, return empty array (data will be added later)
+    if (lobChartType === 'Cost') {
+      return [];
+    }
+    
+    // Revenue data logic (unchanged)
     if (!selectedYear || !selectedMonth) {
       // Show all data when no filter applied
-      return generateRevenueShare(validations);
+      return generateRevenueShare(misRecords);
     } else {
-      // Filter validations by selected month
-      // Database stores rev_month as YYYY-MM-DD, so we need to check if it starts with YYYY-MM
+      // Filter MIS records by selected month
+      // Database stores rev_month as DATE, so we need to check if it starts with YYYY-MM
       const selectedMonthPrefix = `${selectedYear}-${selectedMonth}`;
-      const filteredValidations = validations.filter(v => 
-        v.rev_month && v.rev_month.startsWith(selectedMonthPrefix)
+      const filteredRecords = misRecords.filter(v => 
+        v.rev_month && String(v.rev_month).startsWith(selectedMonthPrefix)
       );
       
-      return generateRevenueShare(filteredValidations);
+      return generateRevenueShare(filteredRecords);
     }
-  }, [validations, selectedYear, selectedMonth]);
+  }, [misRecords, selectedYear, selectedMonth, lobChartType]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -391,13 +478,13 @@ const FinanceDashboard = () => {
       
       <main className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">Finance Dashboard</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-2">MIS Dashboard</h2>
           <p className="text-muted-foreground">Track and analyze revenue performance</p>
         </div>
 
         {/* Analytics Section - Side by Side with Equal Sizes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <AnalyticsCard title="Month on Month Revenue">
+          <AnalyticsCard title="Month on Month Revenue & Cost">
             <div className="space-y-4">
               <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={monthlyRevenue}>
@@ -422,9 +509,15 @@ const FinanceDashboard = () => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
-                    formatter={(value) => [formatCurrency(value), 'Revenue']}
+                    formatter={(value: number, name: string) => [formatCurrency(value), name]}
                   />
                   <Legend />
+                  <Bar 
+                    dataKey="cost" 
+                    fill="#f97316" 
+                    name="Cost"
+                    radius={[8, 8, 0, 0]}
+                  />
                   <Bar 
                     dataKey="revenue" 
                     fill="hsl(var(--primary))" 
@@ -437,8 +530,23 @@ const FinanceDashboard = () => {
           </AnalyticsCard>
 
           <AnalyticsCard 
-            title="Revenue Share (LOB-wise)"
+            title="LOB - Wise Share"
             headerAction={
+              <div className="flex items-center gap-4">
+                <RadioGroup 
+                  value={lobChartType} 
+                  onValueChange={(value) => setLobChartType(value as 'Revenue' | 'Cost')}
+                  className="flex flex-row gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Revenue" id="revenue" />
+                    <Label htmlFor="revenue" className="cursor-pointer">Revenue</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Cost" id="cost" />
+                    <Label htmlFor="cost" className="cursor-pointer">Cost</Label>
+                  </div>
+                </RadioGroup>
               <Select 
                 value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
                 onValueChange={handleDropdownChange}
@@ -458,6 +566,7 @@ const FinanceDashboard = () => {
                   ))}
                 </SelectContent>
               </Select>
+              </div>
             }
           >
             {revenueShare.length > 0 ? (
@@ -492,9 +601,13 @@ const FinanceDashboard = () => {
                 <div className="text-center">
                   <p className="text-muted-foreground text-lg">No data available</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    {selectedYear && selectedMonth ? 
-                      `No revenue data found for ${getDisplayText()}` : 
-                      'No revenue data available'
+                    {lobChartType === 'Cost' 
+                      ? (selectedYear && selectedMonth 
+                          ? `No cost data found for ${getDisplayText()}` 
+                          : 'Cost data will be available soon')
+                      : (selectedYear && selectedMonth 
+                          ? `No revenue data found for ${getDisplayText()}` 
+                          : 'No revenue data available')
                     }
                   </p>
                 </div>
@@ -503,14 +616,62 @@ const FinanceDashboard = () => {
           </AnalyticsCard>
         </div>
 
-        {/* Second Row - Customer Count and Future Chart */}
+        {/* Second Row - Margin Trend and Active Workers */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <AnalyticsCard title="Customer Count by Month">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={customerCountByMonth}>
+          {/* Margin Trend by Month - Line Chart */}
+          <AnalyticsCard title="Margin Trend by Month">
+            {marginByMonth.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={marginByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    label={{ value: 'Margin', angle: -90, position: 'insideLeft' }}
+                  />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Legend />
+                  <Line 
+                    type="monotone"
+                    dataKey="margin" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    name="Margin"
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+            </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[350px]">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-lg">No data available</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Data will be available soon
+                  </p>
+                </div>
+              </div>
+            )}
+          </AnalyticsCard>
+
+          {/* Active Workers by Month - Bar Chart */}
+          <AnalyticsCard title="Active Workers by Month">
+            {activeWorkersByMonth.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={activeWorkersByMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                    label={{ value: 'Count', angle: -90, position: 'insideLeft' }}
+                  />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))', 
@@ -520,76 +681,29 @@ const FinanceDashboard = () => {
                 />
                 <Legend />
                 <Bar 
-                  dataKey="customers" 
-                  fill="#06b6d4"
-                  name="Customers"
+                    dataKey="workers" 
+                    fill="#8b5cf6"
+                    name="Active Workers"
                   radius={[8, 8, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
-          </AnalyticsCard>
-
-          <AnalyticsCard title="Project Count by Month">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={projectCountByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }} 
-                />
-                <Legend />
-                <Bar 
-                  dataKey="projects" 
-                  fill="#6366f1"
-                  name="Projects"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[350px]">
+                <div className="text-center">
+                  <p className="text-muted-foreground text-lg">No data available</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Data will be available soon
+                  </p>
+                </div>
+              </div>
+            )}
           </AnalyticsCard>
         </div>
 
-        {/* Third Row - Incomplete Files and Empty Space */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Only show incomplete files chart if there are incomplete validations */}
-          {incompleteFilesByMonth.some(item => item.incomplete > 0) && (
-            <AnalyticsCard title="Incomplete Validation Files by Month">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={incompleteFilesByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }} 
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="incomplete" 
-                    fill="#f59e0b"
-                    name="Incomplete Files"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </AnalyticsCard>
-          )}
-
-          {/* Empty space */}
-          <div></div>
-        </div>
-
-        {/* Validation Files Section */}
+        {/* MIS Reports Section */}
         <div className="bg-card rounded-lg border border-border p-6">
-          <h3 className="text-xl font-semibold mb-4">Validation Files</h3>
+          <h3 className="text-xl font-semibold mb-4">MIS Reports</h3>
         {loading ? (
           <div className="bg-card rounded-lg border border-border p-6">
             <div className="flex items-center justify-center py-12">
@@ -604,7 +718,7 @@ const FinanceDashboard = () => {
           </div>
         ) : (
           <ValidationTable 
-            data={validations} 
+            data={misRecords} 
           />
         )}
         </div>

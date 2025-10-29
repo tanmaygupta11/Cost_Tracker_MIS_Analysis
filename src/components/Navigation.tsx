@@ -25,7 +25,7 @@ const Navigation = ({ userRole }: NavigationProps) => {
         </div>
         
         <h1 className="absolute left-1/2 transform -translate-x-1/2 text-xl font-semibold text-foreground">
-          Revenue Tracker
+          MIS Analytics
         </h1>
         
         <div className="flex items-center gap-4">

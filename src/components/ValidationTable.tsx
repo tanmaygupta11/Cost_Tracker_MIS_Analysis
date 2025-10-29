@@ -4,17 +4,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, X } from "lucide-react";
-import type { Validation } from "@/lib/supabase";
-import { formatRevenueMonth, formatCurrency, formatDate, getStatusBadge } from "@/lib/supabase";
+import type { MISRecord } from "@/lib/supabase";
+import { formatRevenueMonth, formatCurrency } from "@/lib/supabase";
 
 interface ValidationTableProps {
-  data: Validation[];
+  data: MISRecord[];
   onViewLeads?: () => void;
 }
 
-type SortField = keyof Validation;
+type SortField = keyof MISRecord;
 type SortOrder = 'asc' | 'desc';
 
 const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
@@ -25,7 +24,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const [customerFilter, setCustomerFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
   const [projectIdFilter, setProjectIdFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState(' ');
+  const [customerIdFilter, setCustomerIdFilter] = useState('');
   // NEW: Dynamic dropdown state management
   const [dropdownMode, setDropdownMode] = useState<'years' | 'months'>('years');
   const [selectedYear, setSelectedYear] = useState<string>('');
@@ -127,7 +126,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const hasActiveFilters = customerFilter || 
                           projectFilter || 
                           projectIdFilter || 
-                          statusFilter !== ' ' || 
+                          customerIdFilter || 
                           selectedYear || 
                           selectedMonth;
 
@@ -145,7 +144,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
       const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
       const matchesProjectId = !projectIdFilter || (item.project_id && item.project_id.toLowerCase().includes(projectIdFilter.toLowerCase()));
-      const matchesStatus = !statusFilter || statusFilter === ' ' || item.validation_status === statusFilter;
+      const matchesCustomerId = !customerIdFilter || (item.customer_id && item.customer_id.toLowerCase().includes(customerIdFilter.toLowerCase()));
       
       // NEW: Updated month filtering logic for dynamic dropdown
       let matchesMonth = true;
@@ -168,7 +167,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       }
       // If neither selected, show all records (matchesMonth remains true)
       
-      return matchesCustomer && matchesProject && matchesProjectId && matchesStatus && matchesMonth;
+      return matchesCustomer && matchesProject && matchesProjectId && matchesCustomerId && matchesMonth;
     });
 
     filtered.sort((a, b) => {
@@ -189,7 +188,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     });
 
     return filtered;
-  }, [data, sortField, sortOrder, customerFilter, projectFilter, projectIdFilter, statusFilter, selectedYear, selectedMonth]);
+  }, [data, sortField, sortOrder, customerFilter, projectFilter, projectIdFilter, customerIdFilter, selectedYear, selectedMonth]);
 
   const totalPages = Math.ceil(filteredAndSortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -233,7 +232,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     setCustomerFilter('');
     setProjectFilter('');
     setProjectIdFilter('');
-    setStatusFilter(' ');
+    setCustomerIdFilter('');
     setSelectedYear('');
     setSelectedMonth('');
     setDropdownMode('years');
@@ -246,9 +245,9 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex flex-wrap gap-3 flex-1">
           <Input
-            placeholder="Filter by customer name"
-            value={customerFilter}
-            onChange={(e) => setCustomerFilter(e.target.value)}
+            placeholder="Filter by project ID"
+            value={projectIdFilter}
+            onChange={(e) => setProjectIdFilter(e.target.value)}
             className="max-w-[200px]"
           />
           <Input
@@ -258,22 +257,17 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             className="max-w-[200px]"
           />
           <Input
-            placeholder="Filter by project ID"
-            value={projectIdFilter}
-            onChange={(e) => setProjectIdFilter(e.target.value)}
+            placeholder="Filter by customer ID"
+            value={customerIdFilter}
+            onChange={(e) => setCustomerIdFilter(e.target.value)}
             className="max-w-[200px]"
           />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="max-w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value=" ">All Status</SelectItem>
-              <SelectItem value="Approved">Approved</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            placeholder="Filter by customer name"
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+            className="max-w-[200px]"
+          />
           {/* NEW: Dynamic Single Dropdown */}
           <Select 
             value={dropdownMode === 'years' ? selectedYear || 'ALL' : selectedMonth || 'BACK'} 
@@ -304,10 +298,6 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             Clear Filters
           </Button>
         </div>
-        
-        <div className="text-sm text-muted-foreground">
-          Click "View Leads" on any row to see project-specific leads
-        </div>
       </div>
 
       <div className="rounded-lg border bg-card overflow-x-auto">
@@ -315,8 +305,8 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
           <TableHeader>
             <TableRow>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validation_file_id')} className="h-8 px-2">
-                  Validation File ID <SortIcon field="validation_file_id" />
+                <Button variant="ghost" onClick={() => handleSort('rev_month')} className="h-8 px-2">
+                  Month <SortIcon field="rev_month" />
                 </Button>
               </TableHead>
               <TableHead>
@@ -330,62 +320,54 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('project_name')} className="h-8 px-2">
-                  Project Name <SortIcon field="project_name" />
-                </Button>
-              </TableHead>
-              <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('project_id')} className="h-8 px-2">
                   Project ID <SortIcon field="project_id" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('rev_month')} className="h-8 px-2">
-                  Revenue Month <SortIcon field="rev_month" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('validation_status')} className="h-8 px-2">
-                  Status <SortIcon field="validation_status" />
+                <Button variant="ghost" onClick={() => handleSort('project_name')} className="h-8 px-2">
+                  Project Name <SortIcon field="project_name" />
                 </Button>
               </TableHead>
               <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('revenue')} className="h-8 px-2">
-                  Revenue (₹) <SortIcon field="revenue" />
+                  Approved Revenue (₹) <SortIcon field="revenue" />
                 </Button>
+              </TableHead>
+              <TableHead>
+                Approved Cost
+              </TableHead>
+              <TableHead>
+                Unapproved lead count
+              </TableHead>
+              <TableHead>
+                Unapproved lead cost
               </TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => (
-              <TableRow key={row.validation_file_id}>
-                <TableCell className="font-medium">{row.validation_file_id}</TableCell>
+              <TableRow key={row.sl_no}>
+                <TableCell>{formatRevenueMonth(row.rev_month)}</TableCell>
                 <TableCell>{row.customer_name || '—'}</TableCell>
                 <TableCell>{row.customer_id || '—'}</TableCell>
-                <TableCell>{row.project_name || '—'}</TableCell>
                 <TableCell>{row.project_id || '—'}</TableCell>
-                <TableCell>{formatRevenueMonth(row.rev_month)}</TableCell>
-                <TableCell>
-                  <Badge 
-                    variant={getStatusBadge(row.validation_status).variant}
-                    className={getStatusBadge(row.validation_status).className}
-                  >
-                    {row.validation_status || '—'}
-                  </Badge>
-                </TableCell>
+                <TableCell>{row.project_name || '—'}</TableCell>
                 <TableCell className="font-semibold">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell>{formatCurrency(row.approved_cost)}</TableCell>
+                <TableCell>{row.unapproved_lead_count ?? '—'}</TableCell>
+                <TableCell>{formatCurrency(row.unapproved_lead_cost)}</TableCell>
                 <TableCell className="text-center">
                   <Button
                     onClick={() => {
                       console.log('=== DEBUG: View Leads Clicked (ValidationTable) ===');
-                      console.log('Full validation object:', row);
+                      console.log('Full MIS record object:', row);
                       console.log('rev_month value:', row.rev_month);
-                      console.log('validation_status:', row.validation_status);
-                      console.log('validation_file_id:', row.validation_file_id);
-                      console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}&validation_status=${row.validation_status}&validation_file_id=${row.validation_file_id}`);
+                      console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
                       console.log('=====================================');
-                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}&validation_status=${row.validation_status}&validation_file_id=${row.validation_file_id}`);
+                      // Note: validation_status and validation_file_id removed from navigation as they don't exist in mis_records
+                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
                     }}
                     variant="outline"
                     size="sm"

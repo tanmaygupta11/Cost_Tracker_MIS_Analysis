@@ -168,8 +168,8 @@ const ClientLeads = () => {
       // ✅ Apply Work Completion Date Range filter (using available date fields)
       let matchesWorkDate = true;
       if (workDateFrom || workDateTo) {
-        // Try to use final_work_completion_date or fallback to lead_id for ordering
-        const dateField = (lead as any).final_work_completion_date || (lead as any).created_at;
+        // Try to use work_completion_date or fallback to lead_id for ordering
+        const dateField = (lead as any).work_completion_date || (lead as any).lead_id;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -190,7 +190,7 @@ const ClientLeads = () => {
       let matchesClientDate = true;
       if (clientDateFrom || clientDateTo) {
         // Try to use client_incharge_approval_date or fallback to other date fields
-        const dateField = (lead as any).client_incharge_approval_date || (lead as any).final_work_completion_date || (lead as any).created_at;
+        const dateField = (lead as any).client_incharge_approval_date || (lead as any).work_completion_date || (lead as any).lead_id;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -375,12 +375,12 @@ const ClientLeads = () => {
         lead.lead_id,
         lead.project_id || '',
         lead.project_name || '',
-        formatDate(lead.final_work_completion_date),
-        formatDate(lead["Original_Work_Completion_Date"]),
+        formatDate(lead.work_completion_date),
+        formatDate(lead.work_completion_date),
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
         formatDate(lead.project_incharge_approval_date),
-        formatDate(lead.revisied_work_completion_date),
+        formatDate(lead.work_completion_date),
         lead.client_incharge_approval || '',
         formatDate(lead.client_incharge_approval_date),
         ...(showAdditionalColumns ? [
@@ -451,7 +451,7 @@ const ClientLeads = () => {
       setLeads(prevLeads => 
         prevLeads.map(lead => 
           lead.lead_id === leadId 
-            ? { ...lead, revisied_work_completion_date: dateToSave }
+            ? { ...lead, work_completion_date: dateToSave }
             : lead
         )
       );
@@ -877,10 +877,10 @@ const ClientLeads = () => {
                           ) : (
                             <div 
                               className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors"
-                              onClick={() => handleEditDate(lead.lead_id, lead.revisied_work_completion_date)}
+                              onClick={() => handleEditDate(lead.lead_id, lead.work_completion_date)}
                               title="Click to edit"
                             >
-                              {formatDate(lead.revisied_work_completion_date)}
+                              {formatDate(lead.work_completion_date)}
                             </div>
                           )}
                         </TableCell>

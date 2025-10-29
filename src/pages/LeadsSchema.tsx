@@ -28,16 +28,19 @@ const LeadsSchema = () => {
   const [hasMoreData, setHasMoreData] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [simulatingEmptyLoad, setSimulatingEmptyLoad] = useState(false);
+  const [emptyLoadError, setEmptyLoadError] = useState<string | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
   const projectId = searchParams.get('project_id');
   const revMonth = searchParams.get('rev_month');
-  const validationStatus = searchParams.get('validation_status');
-  const validationFileId = searchParams.get('validation_file_id');
+  // Note: validation_status and validation_file_id removed as they don't exist in new schema
+  // const validationStatus = searchParams.get('validation_status');
+  // const validationFileId = searchParams.get('validation_file_id');
   
-  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth, validationStatus, validationFileId });
+  console.log('LeadsSchema - URL params:', { customerId, projectId, revMonth });
   
   // Calculate min/max dates for date pickers based on rev_month
   let minDate = '';
@@ -52,12 +55,14 @@ const LeadsSchema = () => {
     maxDate = `${yearMonth}-${lastDay.toString().padStart(2, '0')}`;
   }
   
-  // Fetch leads data from Supabase (initial load - first 1000 records)
+  // Fetch leads data from Supabase (initial load - first 100 records)
   useEffect(() => {
     const loadLeads = async () => {
       try {
         setLoading(true);
         setCurrentBatch(0);
+        setEmptyLoadError(null);
+        setSimulatingEmptyLoad(false);
         console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth, 'validationStatus:', validationStatus);
         
         // Apply status filter based on validation status
@@ -72,19 +77,32 @@ const LeadsSchema = () => {
         }
         // If validationStatus is any other status, don't add status filter
         
-        const { data, error } = await fetchLeads(projectId || undefined, filters, 0);
+        const { data, error } = await fetchLeads(projectId || undefined, filters, 0, 100);
         
         console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
         
         if (error) {
           console.error('Error fetching leads:', error);
           setError('Failed to load leads data');
+          setLoading(false);
           return;
         }
         
+        // If no error but data length is 0, simulate 5s loading then show error
+        if (data && data.length === 0) {
+          setSimulatingEmptyLoad(true);
+          // Wait 5 seconds
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          setSimulatingEmptyLoad(false);
+          setEmptyLoadError('Failed to load data. Please retry after sometime');
+          setLeads([]);
+          setHasMoreData(false);
+        } else {
+          // Normal case: we have data
         setLeads(data || []);
-        // If we got exactly 1000 records, there might be more
-        setHasMoreData((data?.length || 0) === 1000);
+          // If we got exactly 100 records, there might be more
+          setHasMoreData((data?.length || 0) === 100);
+        }
       } catch (err) {
         console.error('Error loading leads:', err);
         setError('Failed to load leads data');
@@ -114,7 +132,7 @@ const LeadsSchema = () => {
       }
       // If validationStatus is any other status, don't add status filter
       
-      const { data, error } = await fetchLeads(projectId || undefined, filters, nextBatch);
+      const { data, error } = await fetchLeads(projectId || undefined, filters, nextBatch, 100);
       
       if (error) {
         console.error('Error fetching more leads:', error);
@@ -130,8 +148,8 @@ const LeadsSchema = () => {
         // Use concat instead of spread for better performance with large arrays
         setLeads(prevLeads => prevLeads.concat(data));
         setCurrentBatch(nextBatch);
-        // If we got less than 1000 records, there's no more data
-        setHasMoreData(data.length === 1000);
+        // If we got less than 100 records, there's no more data
+        setHasMoreData(data.length === 100);
         
         toast({
           title: "✅ More records loaded",
@@ -217,6 +235,60 @@ const LeadsSchema = () => {
     } finally {
       setDownloading(false);
     }
+  };
+
+  // Retry handler for empty load error
+  const handleRetry = () => {
+    setEmptyLoadError(null);
+    setError(null);
+    setLoading(true);
+    setCurrentBatch(0);
+    setLeads([]);
+    
+    // Trigger reload by calling the same fetch logic
+    const loadLeads = async () => {
+      try {
+        const filters: any = { revMonth: revMonth || undefined };
+        if (validationStatus === 'Approved') {
+          filters.status = 'Completed';
+        } else if (validationStatus === 'Rejected') {
+          filters.status = 'Incomplete';
+          if (validationFileId) {
+            filters.validation_file_id = validationFileId;
+          }
+        }
+        
+        const { data, error } = await fetchLeads(projectId || undefined, filters, 0, 100);
+        
+        if (error) {
+          console.error('Error fetching leads:', error);
+          setError('Failed to load leads data');
+          setLoading(false);
+          return;
+        }
+        
+        // If no error but data length is 0, simulate 5s loading then show error
+        if (data && data.length === 0) {
+          setSimulatingEmptyLoad(true);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          setSimulatingEmptyLoad(false);
+          setEmptyLoadError('Failed to load data. Please retry after sometime');
+          setLeads([]);
+          setHasMoreData(false);
+        } else {
+          setLeads(data || []);
+          setHasMoreData((data?.length || 0) === 100);
+          setEmptyLoadError(null);
+        }
+      } catch (err) {
+        console.error('Error loading leads:', err);
+        setError('Failed to load leads data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadLeads();
   };
 
   // Handler for Load More button - sets loading state immediately
@@ -331,6 +403,8 @@ const LeadsSchema = () => {
     
     // CSV headers matching all visible table columns
     const headers = [
+      'User ID',
+      'Cost',
       'Lead ID',
       'Project ID',
       'Project Name',
@@ -349,6 +423,8 @@ const LeadsSchema = () => {
     const csvContent = [
       headers.join(','),
       ...selectedLeadsData.map(lead => [
+        '', // User ID - will be added later
+        '', // Cost - will be added later
         lead.lead_id,
         lead.project_id || '',
         lead.project_name || '',
@@ -465,9 +541,23 @@ const LeadsSchema = () => {
         </div>
 
         <div className="bg-card rounded-lg border border-border p-6">
-          {loading ? (
+          {loading || simulatingEmptyLoad ? (
             <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="text-muted-foreground">Loading leads data...</p>
+              </div>
+            </div>
+          ) : emptyLoadError ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <p className="text-red-500 text-lg font-medium">{emptyLoadError}</p>
+              <Button
+                onClick={handleRetry}
+                variant="default"
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              >
+                Retry
+              </Button>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center py-12">
@@ -563,6 +653,8 @@ const LeadsSchema = () => {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
+                  <TableHead className="w-28 text-center whitespace-normal break-words">User ID</TableHead>
+                  <TableHead className="w-32 text-center whitespace-normal break-words">Cost</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
@@ -624,7 +716,7 @@ const LeadsSchema = () => {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={showAdditionalColumns ? 18 : 12} className="text-center py-12">
+                    <TableCell colSpan={showAdditionalColumns ? 20 : 14} className="text-center py-12">
                       <p className="text-muted-foreground text-lg">
                         {(workDateFrom || workDateTo || clientDateFrom || clientDateTo)
                           ? "No records found for the selected date range."
@@ -653,6 +745,8 @@ const LeadsSchema = () => {
                             onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
                           />
                         </TableCell>
+                        <TableCell className="w-28 font-mono text-sm text-center">—</TableCell>
+                        <TableCell className="w-32 text-center">—</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
@@ -706,7 +800,7 @@ const LeadsSchema = () => {
                 ) : (
                   <>
                     Load More Records
-                    <span className="ml-2 text-sm opacity-80">(Next 1000)</span>
+                    <span className="ml-2 text-sm opacity-80">(Next 100)</span>
                   </>
                 )}
               </Button>
