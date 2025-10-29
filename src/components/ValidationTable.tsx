@@ -374,7 +374,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                     className="gap-2 rounded-xl hover:opacity-90 transition-opacity"
                   >
                     <Eye className="h-4 w-4" />
-                    View Leads
+                    View Approved Leads
                   </Button>
                 </TableCell>
               </TableRow>

@@ -63,20 +63,11 @@ const LeadsSchema = () => {
         setCurrentBatch(0);
         setEmptyLoadError(null);
         setSimulatingEmptyLoad(false);
-        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth, 'validationStatus:', validationStatus);
-        
-        // Apply status filter based on validation status
+        console.log('LeadsSchema - Loading initial batch (page 0) with projectId:', projectId, 'revMonth:', revMonth);
+
+        // Apply only revMonth filter as status-based filters are removed in new schema
         const filters: any = { revMonth: revMonth || undefined };
-        if (validationStatus === 'Approved') {
-          filters.status = 'Completed';
-        } else if (validationStatus === 'Rejected') {
-          filters.status = 'Incomplete';
-          if (validationFileId) {
-            filters.validation_file_id = validationFileId;
-          }
-        }
-        // If validationStatus is any other status, don't add status filter
-        
+
         const { data, error } = await fetchLeads(projectId || undefined, filters, 0, 100);
         
         console.log('LeadsSchema - Fetch result:', { data, error, count: data?.length });
@@ -120,18 +111,9 @@ const LeadsSchema = () => {
       const nextBatch = currentBatch + 1;
       console.log('LeadsSchema - Loading more leads, batch:', nextBatch);
       
-      // Apply status filter based on validation status
+      // Apply only revMonth filter as status-based filters are removed in new schema
       const filters: any = { revMonth: revMonth || undefined };
-      if (validationStatus === 'Approved') {
-        filters.status = 'Completed';
-      } else if (validationStatus === 'Rejected') {
-        filters.status = 'Incomplete';
-        if (validationFileId) {
-          filters.validation_file_id = validationFileId;
-        }
-      }
-      // If validationStatus is any other status, don't add status filter
-      
+
       const { data, error } = await fetchLeads(projectId || undefined, filters, nextBatch, 100);
       
       if (error) {
@@ -179,17 +161,9 @@ const LeadsSchema = () => {
     try {
       setDownloading(true);
       
-      // Apply status filter based on validation status
+      // Apply only revMonth filter as status-based filters are removed in new schema
       const filters: any = { revMonth: revMonth || undefined };
-      if (validationStatus === 'Approved') {
-        filters.status = 'Completed';
-      } else if (validationStatus === 'Rejected') {
-        filters.status = 'Incomplete';
-        if (validationFileId) {
-          filters.validation_file_id = validationFileId;
-        }
-      }
-      
+
       console.log('Downloading all leads with filters:', { projectId, filters });
       
       const { data, error } = await fetchAllLeads(projectId || undefined, filters);
@@ -249,14 +223,6 @@ const LeadsSchema = () => {
     const loadLeads = async () => {
       try {
         const filters: any = { revMonth: revMonth || undefined };
-        if (validationStatus === 'Approved') {
-          filters.status = 'Completed';
-        } else if (validationStatus === 'Rejected') {
-          filters.status = 'Incomplete';
-          if (validationFileId) {
-            filters.validation_file_id = validationFileId;
-          }
-        }
         
         const { data, error } = await fetchLeads(projectId || undefined, filters, 0, 100);
         

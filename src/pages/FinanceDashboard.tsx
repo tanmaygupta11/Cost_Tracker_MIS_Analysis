@@ -84,48 +84,55 @@ const extractYearMonth = (dateString: string | null): string | null => {
 const generateMonthlyRevenue = (misRecords: MISRecord[]) => {
   const revenueMap = new Map<string, number>();
   const costMap = new Map<string, number>();
-  
+
   misRecords.forEach(record => {
     if (record.rev_month) {
-      // Extract YYYY-MM format consistently
       const monthKey = extractYearMonth(record.rev_month);
       if (monthKey) {
-        // Sum revenue
         if (record.revenue) {
           revenueMap.set(monthKey, (revenueMap.get(monthKey) || 0) + record.revenue);
         }
-        // Sum cost
         if (record.approved_cost) {
           costMap.set(monthKey, (costMap.get(monthKey) || 0) + record.approved_cost);
         }
       }
     }
   });
-  
-  // Get all unique months
-  const allMonths = new Set([...revenueMap.keys(), ...costMap.keys()]);
-  
-  return Array.from(allMonths)
-    .sort((a, b) => a.localeCompare(b))
-    .slice(-6) // Last 6 months
-    .map(month => ({
-      month: formatMonthForChart(month),
-      revenue: revenueMap.get(month) || 0,
-      cost: costMap.get(month) || 0
-    }));
+
+  const allMonths = Array.from(new Set([...revenueMap.keys(), ...costMap.keys()])).sort((a, b) => a.localeCompare(b));
+  if (allMonths.length === 0) return [];
+
+  // Determine the latest month present and build a contiguous last-6-month window
+  const latest = allMonths[allMonths.length - 1]; // YYYY-MM
+  const window: string[] = [];
+  const [latestYear, latestMonth] = latest.split('-').map(Number);
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(latestYear, latestMonth - 1, 1);
+    date.setMonth(date.getMonth() - i);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    window.push(`${y}-${m}`);
+  }
+
+  return window.map(month => ({
+    month: formatMonthForChart(month),
+    revenue: revenueMap.get(month) || 0,
+    cost: costMap.get(month) || 0
+  }));
 };
 
-const generateRevenueShare = (misRecords: MISRecord[]) => {
+const generateLobShare = (misRecords: MISRecord[], metric: 'revenue' | 'approved_cost') => {
   const lobMap = new Map<string, number>();
-  
+
   misRecords.forEach(record => {
     // Ignore NULL or empty LOB values - now using lowercase 'lob'
-    if (record.lob && record.lob.trim() !== '' && record.revenue) {
+    const value = (record as any)[metric] as number | null | undefined;
+    if (record.lob && record.lob.trim() !== '' && value) {
       const lob = record.lob;
-      lobMap.set(lob, (lobMap.get(lob) || 0) + record.revenue);
+      lobMap.set(lob, (lobMap.get(lob) || 0) + Number(value));
     }
   });
-  
+
   return Array.from(lobMap.entries())
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
@@ -213,24 +220,43 @@ const generateIncompleteFilesByMonth = (validations: Validation[]) => {
 
 // Generate Margin by Month from MIS records
 const generateMarginByMonth = (misRecords: MISRecord[]) => {
-  const monthMap = new Map<string, number>();
-  
+  const monthMap = new Map<string, number[]>();
+
   misRecords.forEach(record => {
-    if (record.rev_month && record.margin !== null) {
+    if (record.rev_month && record.margin !== null && record.margin !== undefined) {
       const monthKey = extractYearMonth(record.rev_month);
       if (monthKey) {
-        monthMap.set(monthKey, record.margin);
+        const arr = monthMap.get(monthKey) || [];
+        arr.push(Number(record.margin));
+        monthMap.set(monthKey, arr);
       }
     }
   });
-  
-  return Array.from(monthMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6) // Last 6 months
-    .map(([month, margin]) => ({
+
+  const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b));
+  if (months.length === 0) return [];
+
+  // Latest month and contiguous 6-month window
+  const latest = months[months.length - 1];
+  const window: string[] = [];
+  const [latestYear, latestMonth] = latest.split('-').map(Number);
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(latestYear, latestMonth - 1, 1);
+    date.setMonth(date.getMonth() - i);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    window.push(`${y}-${m}`);
+  }
+
+  return window.map(month => {
+    const values = monthMap.get(month) || [];
+    // Use average if multiple values exist for the month; default 0
+    const margin = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+    return {
       month: formatMonthForChart(month),
-      margin: margin
-    }));
+      margin
+    };
+  });
 };
 
 // Generate Active Workers by Month from active_workers table
@@ -451,15 +477,11 @@ const FinanceDashboard = () => {
   
   // Filtered revenue share based on selected month and chart type
   const revenueShare = useMemo(() => {
-    // If Cost is selected, return empty array (data will be added later)
-    if (lobChartType === 'Cost') {
-      return [];
-    }
-    
-    // Revenue data logic (unchanged)
+    const metric: 'revenue' | 'approved_cost' = lobChartType === 'Cost' ? 'approved_cost' : 'revenue';
+
     if (!selectedYear || !selectedMonth) {
       // Show all data when no filter applied
-      return generateRevenueShare(misRecords);
+      return generateLobShare(misRecords, metric);
     } else {
       // Filter MIS records by selected month
       // Database stores rev_month as DATE, so we need to check if it starts with YYYY-MM
@@ -467,8 +489,8 @@ const FinanceDashboard = () => {
       const filteredRecords = misRecords.filter(v => 
         v.rev_month && String(v.rev_month).startsWith(selectedMonthPrefix)
       );
-      
-      return generateRevenueShare(filteredRecords);
+
+      return generateLobShare(filteredRecords, metric);
     }
   }, [misRecords, selectedYear, selectedMonth, lobChartType]);
 
