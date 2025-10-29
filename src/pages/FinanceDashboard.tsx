@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import ValidationTable from "@/components/ValidationTable";
+import UploadCSVModal from "@/components/UploadCSVModal";
 import { fetchValidations, formatCurrency } from "@/lib/supabase";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, DollarSign } from "lucide-react";
@@ -11,6 +12,7 @@ import { fetchActiveWorkers } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f43f5e'];
 
@@ -326,6 +328,7 @@ const FinanceDashboard = () => {
   const [activeWorkers, setActiveWorkers] = useState<Array<{ record_date: string | null; active_workers: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   
   // Filter state for Revenue Share chart
   const [lobChartType, setLobChartType] = useState<'Revenue' | 'Cost'>('Revenue');
@@ -421,8 +424,7 @@ const FinanceDashboard = () => {
   };
   
   // Fetch MIS records and active workers data from Supabase
-  useEffect(() => {
-    const loadData = async () => {
+  const loadData = async () => {
       try {
         setLoading(true);
         
@@ -457,8 +459,9 @@ const FinanceDashboard = () => {
       } finally {
         setLoading(false);
       }
-    };
-    
+  };
+  
+  useEffect(() => {
     loadData();
   }, []);
   
@@ -725,7 +728,12 @@ const FinanceDashboard = () => {
 
         {/* MIS Reports Section */}
         <div className="bg-card rounded-lg border border-border p-6">
-          <h3 className="text-xl font-semibold mb-4">MIS Reports</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold">MIS Reports</h3>
+            <Button onClick={() => setIsUploadOpen(true)} variant="default" className="rounded-xl">
+              Add via CSV
+            </Button>
+          </div>
         {loading ? (
           <div className="bg-card rounded-lg border border-border p-6">
             <div className="flex items-center justify-center py-12">
@@ -744,6 +752,13 @@ const FinanceDashboard = () => {
           />
         )}
         </div>
+
+        {/* CSV Upload Modal */}
+        <UploadCSVModal 
+          open={isUploadOpen} 
+          onClose={() => setIsUploadOpen(false)} 
+          onSuccess={() => { setIsUploadOpen(false); loadData(); }}
+        />
       </main>
     </div>
   );

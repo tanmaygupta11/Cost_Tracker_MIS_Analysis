@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
-import { Download, ArrowLeft, X, Loader2 } from "lucide-react";
+import { Download, ArrowLeft, X, Loader2, Plus } from "lucide-react";
+import UploadLeadsCSVModal from "@/components/UploadLeadsCSVModal";
 import { useToast } from "@/hooks/use-toast";
 
 const LeadsSchema = () => {
@@ -31,6 +32,7 @@ const LeadsSchema = () => {
   const [simulatingEmptyLoad, setSimulatingEmptyLoad] = useState(false);
   const [emptyLoadError, setEmptyLoadError] = useState<string | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
@@ -504,6 +506,15 @@ const LeadsSchema = () => {
               </>
             )}
           </Button>
+
+          <Button
+            onClick={() => setIsUploadOpen(true)}
+            variant="default"
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add via CSV
+          </Button>
         </div>
 
         <div className="bg-card rounded-lg border border-border p-6">
@@ -776,6 +787,21 @@ const LeadsSchema = () => {
           )}
         </div>
       </main>
+
+      {/* CSV Upload Modal for Leads */}
+      <UploadLeadsCSVModal
+        open={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSuccess={() => {
+          setIsUploadOpen(false);
+          // Reload first page to reflect new data
+          const reload = async () => {
+            const { data } = await fetchLeads(projectId || undefined, { revMonth: revMonth || undefined }, 0, 100);
+            setLeads(data || []);
+          };
+          reload();
+        }}
+      />
     </div>
   );
 };
