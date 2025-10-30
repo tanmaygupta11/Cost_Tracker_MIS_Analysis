@@ -255,6 +255,8 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     const filename = `mis_records_${timestamp}.csv`;
     exportMisRecordsToCSV(selectedRecords as MISRecord[], filename);
     toast({ title: "Download Complete", description: `Downloaded ${selectedRecords.length} record(s).` });
+    // Clear selection after successful download
+    setSelected([]);
   };
 
 
