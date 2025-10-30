@@ -11,6 +11,7 @@ import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X, Loader2, Plus } from "lucide-react";
 import UploadLeadsCSVModal from "@/components/UploadLeadsCSVModal";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const LeadsSchema = () => {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ const LeadsSchema = () => {
   const [emptyLoadError, setEmptyLoadError] = useState<string | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const { role } = useAuth();
   
   // ✅ Get query parameters for filtering
   const customerId = searchParams.get('customer_id');
@@ -370,21 +372,26 @@ const LeadsSchema = () => {
     const selectedLeadsData = filteredData.filter(lead => selectedLeads.includes(lead.lead_id));
     
     // CSV headers matching all visible table columns
-    const headers = [
+      const headers = [
       'User ID',
       'Cost',
+        'Lead Type',
       'Lead ID',
       'Project ID',
       'Project Name',
       // 'Final Work Completion Date',
-      'Work Completion Date',
+        'Work Completion Date',
+        'Revised Work Completion Date',
+        'Final Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
-      'Revised Work Completion Date',
       'Client Incharge Approval',
-      'Client Incharge Approval Date',
-      ...(showAdditionalColumns ? ['Zone', 'City', 'State', 'TC Code', 'Role', 'Shift'] : [])
+              'Client Incharge Approval Date',
+              'Zone',
+              'City',
+              'State',
+              ...(showAdditionalColumns ? ['TC Code', 'Role', 'Shift'] : [])
     ];
 
     // Convert data to CSV format
@@ -394,23 +401,25 @@ const LeadsSchema = () => {
         '', // User ID - will be added later
         '', // Cost - will be added later
         lead.lead_id,
+        // lead type will be added later when present in data export context; keeping empty for now
+        // but include position in CSV per header ordering above
         lead.project_id || '',
         lead.project_name || '',
-        // formatDate(lead.final_work_completion_date),
-        formatDate(lead["Original_Work_Completion_Date"]),
+        formatDate((lead as any).work_completion_date),
+        formatDate((lead as any).revisied_work_completion_date),
+        formatDate((lead as any).final_work_completion_date),
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
         formatDate(lead.project_incharge_approval_date),
-        formatDate(lead.revisied_work_completion_date),
         lead.client_incharge_approval || '',
         formatDate(lead.client_incharge_approval_date),
+        (lead as any).zone || '',
+        (lead as any).city || '',
+        (lead as any).state || '',
         ...(showAdditionalColumns ? [
-          lead["Zone"] || '',
-          lead["City"] || '',
-          lead["State"] || '',
-          lead["TC Code"] || '',
-          lead["Role"] || '',
-          lead["Shift"] || ''
+          (lead as any).tc_code || '',
+          (lead as any).role || '',
+          (lead as any).shift || ''
         ] : [])
       ].map(field => `"${field}"`).join(','))
     ].join('\n');
@@ -462,7 +471,7 @@ const LeadsSchema = () => {
         <div className="mb-6">
           <Button 
             variant="outline" 
-            onClick={() => navigate('/finance-dashboard')}
+            onClick={() => navigate('/mis-dashboard')}
             className="mb-4 flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -507,14 +516,16 @@ const LeadsSchema = () => {
             )}
           </Button>
 
-          <Button
-            onClick={() => setIsUploadOpen(true)}
-            variant="default"
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add via CSV
-          </Button>
+          {role === 'admin' && (
+            <Button
+              onClick={() => setIsUploadOpen(true)}
+              variant="default"
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add via CSV
+            </Button>
+          )}
         </div>
 
         <div className="bg-card rounded-lg border border-border p-6">
@@ -621,7 +632,7 @@ const LeadsSchema = () => {
           </div>
 
           <div className="bg-card rounded-xl border border-border w-full overflow-x-auto table-container">
-            <Table className="w-full" style={{ minWidth: showAdditionalColumns ? '2000px' : '1400px' }}>
+            <Table className="w-full" style={{ minWidth: showAdditionalColumns ? '2000px' : '1600px' }}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-center">
@@ -633,6 +644,7 @@ const LeadsSchema = () => {
                   <TableHead className="w-28 text-center whitespace-normal break-words">User ID</TableHead>
                   <TableHead className="w-32 text-center whitespace-normal break-words">Cost</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
+                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead Type</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
                   {/* <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead> */}
@@ -668,6 +680,12 @@ const LeadsSchema = () => {
                   </TableHead>
                   <TableHead className="w-44 text-center whitespace-normal break-words">
                     <div>
+                      <div>Final Work</div>
+                      <div>Completion Date</div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center whitespace-normal break-words">
+                    <div>
                       <div>Client Incharge</div>
                       <div>Approval</div>
                     </div>
@@ -678,11 +696,13 @@ const LeadsSchema = () => {
                       <div>Approval Date</div>
                     </div>
                   </TableHead>
+                  {/* Always visible location columns */}
+                  <TableHead className="w-32 text-center whitespace-normal break-words">Zone</TableHead>
+                  <TableHead className="w-32 text-center whitespace-normal break-words">City</TableHead>
+                  <TableHead className="w-32 text-center whitespace-normal break-words">State</TableHead>
+                  {/* Additional optional columns */}
                   {showAdditionalColumns && (
                     <>
-                      <TableHead className="w-32 text-center whitespace-normal break-words">Zone</TableHead>
-                      <TableHead className="w-32 text-center whitespace-normal break-words">City</TableHead>
-                      <TableHead className="w-32 text-center whitespace-normal break-words">State</TableHead>
                       <TableHead className="w-32 text-center whitespace-normal break-words">TC Code</TableHead>
                       <TableHead className="w-32 text-center whitespace-normal break-words">Role</TableHead>
                       <TableHead className="w-32 text-center whitespace-normal break-words">Shift</TableHead>
@@ -725,24 +745,28 @@ const LeadsSchema = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">—</TableCell>
                         <TableCell className="w-32 text-center">—</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
+                        <TableCell className="w-28 text-center">{(lead as any).lead_type || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
                         {/* <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell> */}
-                        <TableCell className="w-44 text-center">{formatDate(lead["Original_Work_Completion_Date"])}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).work_completion_date)}</TableCell>
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate(lead.revisied_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).final_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.client_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.client_incharge_approval_date)}</TableCell>
+                        {/* Always visible location cells */}
+                        <TableCell className="w-32 text-center">{(lead as any).zone || '—'}</TableCell>
+                        <TableCell className="w-32 text-center">{(lead as any).city || '—'}</TableCell>
+                        <TableCell className="w-32 text-center">{(lead as any).state || '—'}</TableCell>
+                        {/* Optional columns */}
                         {showAdditionalColumns && (
                           <>
-                            <TableCell className="w-32 text-center">{lead["Zone"] || '—'}</TableCell>
-                            <TableCell className="w-32 text-center">{lead["City"] || '—'}</TableCell>
-                            <TableCell className="w-32 text-center">{lead["State"] || '—'}</TableCell>
-                            <TableCell className="w-32 text-center">{lead["TC Code"] || '—'}</TableCell>
-                            <TableCell className="w-32 text-center">{lead["Role"] || '—'}</TableCell>
-                            <TableCell className="w-32 text-center">{lead["Shift"] || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{(lead as any).tc_code || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{(lead as any).role || '—'}</TableCell>
+                            <TableCell className="w-32 text-center">{(lead as any).shift || '—'}</TableCell>
                           </>
                         )}
                       </TableRow>

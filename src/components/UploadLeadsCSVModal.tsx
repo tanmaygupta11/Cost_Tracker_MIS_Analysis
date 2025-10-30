@@ -20,9 +20,9 @@ type LeadsCsvRow = {
   lead_id?: string | null;
   work_completion_date?: string | null;
   unit_basis_commercial?: string | null;
-  project_incharge_approval?: boolean | null;
+  project_incharge_approval?: string | null;
   project_incharge_approval_date?: string | null;
-  client_incharge_approval?: boolean | null;
+  client_incharge_approval?: string | null;
   client_incharge_approval_date?: string | null;
   zone?: string | null;
   state?: string | null;
@@ -33,10 +33,13 @@ type LeadsCsvRow = {
 };
 
 const REQUIRED_HEADERS = [
+  'lead_type',
   'lead_id',
   'project_id',
   'project_name',
   'work_completion_date',
+  'revisied_work_completion_date',
+  'final_work_completion_date',
   'unit_basis_commercial',
   'project_incharge_approval',
   'project_incharge_approval_date',
@@ -77,13 +80,15 @@ function toNumber(n: string | number | undefined | null): number | null {
   return isFinite(num) ? num : null;
 }
 
-function toBoolean(v: string | boolean | null | undefined): boolean | null {
+function normalizeApproval(v: string | null | undefined): string | null {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'boolean') return v;
   const s = v.toString().trim().toLowerCase();
-  if (s === 'true' || s === '1' || s === 'yes' || s === 'approved') return true;
-  if (s === 'false' || s === '0' || s === 'no' || s === 'rejected') return false;
-  return null;
+  if (!s) return null;
+  if (['approved', 'true', '1', 'yes', 'y'].includes(s)) return 'Approved';
+  if (['rejected', 'false', '0', 'no', 'n'].includes(s)) return 'Rejected';
+  if (['pending', 'p'].includes(s)) return 'Pending';
+  // Fallback: capitalize first letter
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function UploadLeadsCSVModal({ open, onClose, onSuccess }: UploadLeadsCSVModalProps) {
@@ -144,12 +149,15 @@ export default function UploadLeadsCSVModal({ open, onClose, onSuccess }: Upload
         project_id: rec['project_id'] || null,
         projectid: rec['projectid'] || null,
         project_name: rec['project_name'] || null,
+        lead_type: rec['lead_type'] || null as any,
         lead_id: (rec['lead_id'] || '').trim() || null,
         work_completion_date: normalizeDate(rec['work_completion_date']),
+        revisied_work_completion_date: normalizeDate(rec['revisied_work_completion_date']) as any,
+        final_work_completion_date: normalizeDate(rec['final_work_completion_date']) as any,
         unit_basis_commercial: rec['unit_basis_commercial'] || null,
-        project_incharge_approval: toBoolean(rec['project_incharge_approval']),
+        project_incharge_approval: normalizeApproval(rec['project_incharge_approval']),
         project_incharge_approval_date: normalizeDate(rec['project_incharge_approval_date']),
-        client_incharge_approval: toBoolean(rec['client_incharge_approval']),
+        client_incharge_approval: normalizeApproval(rec['client_incharge_approval']),
         client_incharge_approval_date: normalizeDate(rec['client_incharge_approval_date']),
         zone: rec['zone'] || null,
         state: rec['state'] || null,
@@ -218,7 +226,7 @@ export default function UploadLeadsCSVModal({ open, onClose, onSuccess }: Upload
   }
 
   const sampleHeader = REQUIRED_HEADERS.join(',');
-  const sampleRow = 'L123,P001,Project Alpha,2025-02-01,Monthly,true,2025-02-05,true,2025-02-10,U001,250,North,StateX,CityY,TC123,Guard,Day';
+  const sampleRow = 'Onsite,L123,P001,Project Alpha,2025-02-01,2025-02-05,2025-02-10,Monthly,Approved,2025-02-12,Approved,2025-02-15,U001,250,North,StateX,CityY,TC123,Guard,Day';
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -237,7 +245,7 @@ export default function UploadLeadsCSVModal({ open, onClose, onSuccess }: Upload
             <ul className="list-disc ml-5 mt-3 space-y-1">
               <li>id is auto-assigned by the database; do not include it.</li>
               <li>Dates: YYYY-MM-DD, YYYY-MM auto-fills day as 01; dd-mm-yyyy allowed.</li>
-              <li>Approvals must be boolean-like values (true/false/approved/rejected).</li>
+              <li>Approvals must be one of: Approved, Rejected, Pending.</li>
               <li>Duplicates are skipped by lead_id.</li>
             </ul>
           </div>

@@ -113,14 +113,22 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
 
   // Add additional filters if provided
-  // Note: Approvals are now boolean in the new schema
+  // Approvals are TEXT now: use canonical values 'Approved' | 'Rejected' | 'Pending'
+  const normalizeApproval = (v: string | undefined) => {
+    if (!v) return undefined;
+    const s = v.toLowerCase();
+    if (['true', 'approved', 'approve'].includes(s)) return 'Approved';
+    if (['false', 'rejected', 'reject'].includes(s)) return 'Rejected';
+    if (['pending'].includes(s)) return 'Pending';
+    return v; // use as provided
+  };
   if (filters?.projectInchargeApproval !== undefined) {
-    const boolValue = filters.projectInchargeApproval === 'true' || filters.projectInchargeApproval === 'Approved';
-    query = query.eq('project_incharge_approval', boolValue);
+    const val = normalizeApproval(filters.projectInchargeApproval);
+    if (val) query = query.eq('project_incharge_approval', val);
   }
   if (filters?.clientInchargeApproval !== undefined) {
-    const boolValue = filters.clientInchargeApproval === 'true' || filters.clientInchargeApproval === 'Approved';
-    query = query.eq('client_incharge_approval', boolValue);
+    const val = normalizeApproval(filters.clientInchargeApproval);
+    if (val) query = query.eq('client_incharge_approval', val);
   }
   // Column names are now lowercase in new schema
   if (filters?.zone) {
@@ -170,7 +178,7 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
 
   const { data, error } = await query
-    .order('id', { ascending: true }) // Use id instead of lead_id for ordering
+    .order('lead_id', { ascending: true })
     .range(from, to);
 
   if (error) {
@@ -207,15 +215,22 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
     query = query.eq('project_id', projectId);
   }
 
-  // Add additional filters if provided
-  // Note: Approvals are now boolean in the new schema
+  // Add additional filters if provided (TEXT approvals)
+  const normalizeApproval2 = (v: string | undefined) => {
+    if (!v) return undefined;
+    const s = v.toLowerCase();
+    if (['true', 'approved', 'approve'].includes(s)) return 'Approved';
+    if (['false', 'rejected', 'reject'].includes(s)) return 'Rejected';
+    if (['pending'].includes(s)) return 'Pending';
+    return v;
+  };
   if (filters?.projectInchargeApproval !== undefined) {
-    const boolValue = filters.projectInchargeApproval === 'true' || filters.projectInchargeApproval === 'Approved';
-    query = query.eq('project_incharge_approval', boolValue);
+    const val = normalizeApproval2(filters.projectInchargeApproval);
+    if (val) query = query.eq('project_incharge_approval', val);
   }
   if (filters?.clientInchargeApproval !== undefined) {
-    const boolValue = filters.clientInchargeApproval === 'true' || filters.clientInchargeApproval === 'Approved';
-    query = query.eq('client_incharge_approval', boolValue);
+    const val = normalizeApproval2(filters.clientInchargeApproval);
+    if (val) query = query.eq('client_incharge_approval', val);
   }
   // Column names are now lowercase in new schema
   if (filters?.zone) {
@@ -261,7 +276,7 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
   }
 
   const { data, error } = await query
-    .order('id', { ascending: true }); // Use id instead of lead_id for ordering
+    .order('lead_id', { ascending: true });
 
   if (error) {
     console.error('Error fetching all leads:', error);
@@ -283,11 +298,14 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
   const headers = [
     'User ID',
     'Cost',
+    'Lead Type',
     'Lead ID',
     'Project ID', 
     'Project ID (Alt)',
     'Project Name',
     'Work Completion Date',
+    'Revised Work Completion Date',
+    'Final Work Completion Date',
     'Unit Basis Commercial',
     'Project Incharge Approval',
     'Project Incharge Approval Date',
@@ -305,15 +323,18 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
   const csvData = leads.map(lead => [
     lead.user_id || '',
     lead.cost || '',
+    lead.lead_type || '',
     lead.lead_id || '',
     lead.project_id || '',
     lead.projectid || '',
     lead.project_name || '',
     lead.work_completion_date || '',
+    lead.revisied_work_completion_date || '',
+    lead.final_work_completion_date || '',
     lead.unit_basis_commercial || '',
-    lead.project_incharge_approval ? 'Approved' : (lead.project_incharge_approval === false ? 'Rejected' : 'Pending'),
+    lead.project_incharge_approval || 'Pending',
     lead.project_incharge_approval_date || '',
-    lead.client_incharge_approval ? 'Approved' : (lead.client_incharge_approval === false ? 'Rejected' : 'Pending'),
+    lead.client_incharge_approval || 'Pending',
     lead.client_incharge_approval_date || '',
     lead.zone || '',
     lead.city || '',
@@ -343,44 +364,30 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
   console.log(`Exported ${leads.length} leads to ${filename}`);
 };
 
-// Update lead approval status - now uses boolean
+// Update lead approval status - approvals are TEXT values now
 export const updateLeadApproval = async (
   leadId: string,
   approval: 'Approved' | 'Rejected' | 'Pending',
   approvalType: 'client_incharge_approval' | 'project_incharge_approval'
 ) => {
-  const isApproved = approval === 'Approved';
   const updateData: any = {
-    [approvalType]: isApproved,
+    [approvalType]: approval,
   };
 
   // Set approval date if approved, clear if rejected/pending
   if (approvalType === 'client_incharge_approval') {
-    updateData.client_incharge_approval_date = isApproved ? new Date().toISOString() : null;
+    updateData.client_incharge_approval_date = approval === 'Approved' ? new Date().toISOString() : null;
   } else if (approvalType === 'project_incharge_approval') {
-    updateData.project_incharge_approval_date = isApproved ? new Date().toISOString() : null;
+    updateData.project_incharge_approval_date = approval === 'Approved' ? new Date().toISOString() : null;
   }
 
-  // Note: In new schema, we query by id, but for compatibility, check if lead_id exists
-  // If lead_id is provided, try to find by lead_id first, otherwise use id
-  let query = supabase.from('leads').update(updateData);
-  
-  // Try to match by lead_id first (if it's a string ID), otherwise use id
-  if (leadId && !leadId.match(/^\d+$/)) {
-    // If it's not numeric, it's likely a lead_id
-    query = query.eq('lead_id', leadId);
-  } else {
-    // Otherwise it's an id
-    query = query.eq('id', parseInt(leadId));
-  }
-
-  return query;
+  return supabase.from('leads').update(updateData).eq('lead_id', leadId);
 };
 
-// Bulk approve leads - update both approval status (boolean) and date
+// Bulk approve leads - set TEXT approvals and date
 export const bulkApproveLeads = async (leadIds: string[], approvalType: 'client_incharge_approval' | 'project_incharge_approval' = 'client_incharge_approval') => {
   const updateData: any = {
-    [approvalType]: true, // Boolean true for approved
+    [approvalType]: 'Approved',
   };
   
   if (approvalType === 'client_incharge_approval') {
@@ -398,10 +405,10 @@ export const bulkApproveLeads = async (leadIds: string[], approvalType: 'client_
     .in('lead_id', leadIds);
 };
 
-// Bulk reject leads - set approval status to false (boolean) and clear date
+// Bulk reject leads - set TEXT approvals and clear date
 export const bulkRejectLeads = async (leadIds: string[], approvalType: 'client_incharge_approval' | 'project_incharge_approval' = 'client_incharge_approval') => {
   const updateData: any = {
-    [approvalType]: false, // Boolean false for rejected
+    [approvalType]: 'Rejected',
   };
   
   if (approvalType === 'client_incharge_approval') {

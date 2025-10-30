@@ -5,13 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, User, ArrowLeft } from "lucide-react";
-import { useClient } from "@/contexts/ClientContext";
+// Removed client login; client context not needed here anymore
+// import { useClient } from "@/contexts/ClientContext";
+import { useAuth } from "@/contexts/AuthContext";
 
-type Role = 'finance' | 'client' | null;
+type Role = 'finance' | 'admin' | null;
 
 const Login = () => {
   const navigate = useNavigate();
-  const { setClient } = useClient();
+  // const { setClient } = useClient();
+  const { login } = useAuth();
   
   // State management
   const [selectedRole, setSelectedRole] = useState<Role>(null);
@@ -21,7 +24,7 @@ const Login = () => {
   const [error, setError] = useState("");
 
   // Handle role selection - show login form
-  const handleRoleSelection = (role: 'finance' | 'client') => {
+  const handleRoleSelection = (role: 'finance' | 'admin') => {
     setSelectedRole(role);
     setShowLoginForm(true);
     setEmail('');
@@ -46,21 +49,18 @@ const Login = () => {
     // Validate credentials based on selected role
     if (selectedRole === 'finance') {
       if (email === 'finance.team@awign.com' && password === 'finance@303') {
-        navigate('/finance-dashboard');
+        login('finance');
+        navigate('/mis-dashboard');
       } else {
         setError('Invalid credentials. Please try again.');
       }
-    } else if (selectedRole === 'client') {
-      if (email === 'blackbuck.client@gmail.com' && password === 'blackbuck@123') {
-        // Client login: Show BlackBuck customer data (C137)
-        setClient('C137', 'BlackBuck');
-        navigate('/client-dashboard');
-      } else if (email === 'tatacs.client@gmail.com' && password === 'tcs@321') {
-        // Client login: Show TCS customer data (C65)
-        setClient('C65', 'TCS');
-        navigate('/client-dashboard');
+    } else if (selectedRole === 'admin') {
+      // Demo admin creds
+      if (email === 'awign.admin@awign.com' && password === 'admin@303') {
+        login('admin');
+        navigate('/admin-dashboard');
       } else {
-        setError('Invalid credentials. Please try again.');
+        setError('Invalid admin credentials.');
       }
     }
   };
@@ -87,11 +87,11 @@ const Login = () => {
               className="h-16 w-auto"
             />
           </div>
-          <CardTitle className="text-2xl font-bold">Revenue Tracker</CardTitle>
+          <CardTitle className="text-2xl font-bold">MIS Analytics</CardTitle>
           <CardDescription>
             {!showLoginForm 
               ? 'Select your role to continue' 
-              : `Login as ${selectedRole === 'finance' ? 'Finance Team' : 'Client'}`
+              : `Login as ${selectedRole === 'finance' ? 'Finance Team' : selectedRole === 'admin' ? 'Admin' : 'Client'}`
             }
           </CardDescription>
         </CardHeader>
@@ -110,13 +110,13 @@ const Login = () => {
               </Button>
               
               <Button 
-                onClick={() => handleRoleSelection('client')}
+                onClick={() => handleRoleSelection('admin')}
                 className="w-full h-12 text-base gap-2"
                 variant="outline"
                 size="lg"
               >
                 <User className="h-5 w-5" />
-                Login as Client
+                Login as Admin
               </Button>
             </>
           ) : (
@@ -129,7 +129,7 @@ const Login = () => {
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  placeholder={selectedRole === 'admin' ? 'Enter admin email' : 'Enter your email'}
                   required
                   className="h-11"
                 />

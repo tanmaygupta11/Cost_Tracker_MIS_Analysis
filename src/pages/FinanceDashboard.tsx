@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import AnalyticsCard from "@/components/AnalyticsCard";
 import ValidationTable from "@/components/ValidationTable";
 import UploadCSVModal from "@/components/UploadCSVModal";
@@ -254,9 +255,10 @@ const generateMarginByMonth = (misRecords: MISRecord[]) => {
     const values = monthMap.get(month) || [];
     // Use average if multiple values exist for the month; default 0
     const margin = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+    const rounded = Number(margin.toFixed(2));
     return {
       month: formatMonthForChart(month),
-      margin
+      margin: rounded
     };
   });
 };
@@ -324,6 +326,7 @@ const formatMonthForChart = (monthString: string) => {
 
 const FinanceDashboard = () => {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [misRecords, setMisRecords] = useState<MISRecord[]>([]);
   const [activeWorkers, setActiveWorkers] = useState<Array<{ record_date: string | null; active_workers: number | null }>>([]);
   const [loading, setLoading] = useState(true);
@@ -477,6 +480,28 @@ const FinanceDashboard = () => {
   // Note: generateIncompleteFilesByMonth removed as Validation_completed doesn't exist in mis_records
   const marginByMonth = generateMarginByMonth(misRecords);
   const activeWorkersByMonth = generateActiveWorkersByMonth(activeWorkers);
+
+  // Generate y-axis ticks for margin chart at 0.02 intervals
+  const marginTicks = useMemo(() => {
+    if (!marginByMonth || marginByMonth.length === 0) return [] as number[];
+    const values = marginByMonth.map((d: any) => Number(d.margin) || 0);
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    const step = 0.02;
+    // Expand a tiny bit to ensure at least one tick if min==max
+    if (min === max) {
+      min -= step;
+      max += step;
+    }
+    // Snap to step boundaries
+    min = Math.floor(min / step) * step;
+    max = Math.ceil(max / step) * step;
+    const ticks: number[] = [];
+    for (let v = min; v <= max + 1e-9; v += step) {
+      ticks.push(Number(v.toFixed(2)));
+    }
+    return ticks;
+  }, [marginByMonth]);
   
   // Filtered revenue share based on selected month and chart type
   const revenueShare = useMemo(() => {
@@ -499,12 +524,12 @@ const FinanceDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation userRole="finance" />
+      <Navigation userRole={role || "finance"} />
       
       <main className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">MIS Dashboard</h2>
-          <p className="text-muted-foreground">Track and analyze revenue performance</p>
+          <p className="text-muted-foreground">Track and analyze revenue and cost performance</p>
         </div>
 
         {/* Analytics Section - Side by Side with Equal Sizes */}
@@ -652,6 +677,13 @@ const FinanceDashboard = () => {
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                   <YAxis 
                     stroke="hsl(var(--muted-foreground))"
+                    allowDecimals
+                    ticks={marginTicks}
+                    domain={[
+                      marginTicks.length ? marginTicks[0] : 'auto',
+                      marginTicks.length ? marginTicks[marginTicks.length - 1] : 'auto'
+                    ]}
+                    tickFormatter={(v: number) => v.toFixed(2)}
                     label={{ value: 'Margin', angle: -90, position: 'insideLeft' }}
                   />
                 <Tooltip 
@@ -730,9 +762,11 @@ const FinanceDashboard = () => {
         <div className="bg-card rounded-lg border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold">MIS Reports</h3>
-            <Button onClick={() => setIsUploadOpen(true)} variant="default" className="rounded-xl">
-              Add via CSV
-            </Button>
+            {role === 'admin' && (
+              <Button onClick={() => setIsUploadOpen(true)} variant="default" className="rounded-xl">
+                Add via CSV
+              </Button>
+            )}
           </div>
         {loading ? (
           <div className="bg-card rounded-lg border border-border p-6">

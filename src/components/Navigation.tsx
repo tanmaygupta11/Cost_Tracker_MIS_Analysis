@@ -1,15 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavigationProps {
-  userRole?: 'finance' | 'client';
+  userRole?: 'finance' | 'client' | 'admin';
 }
 
 const Navigation = ({ userRole }: NavigationProps) => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
+    logout();
     navigate('/');
   };
 
@@ -31,7 +34,7 @@ const Navigation = ({ userRole }: NavigationProps) => {
         <div className="flex items-center gap-4">
           {userRole && (
             <span className="text-sm font-medium text-muted-foreground px-3 py-1 bg-muted rounded-md">
-              {userRole === 'finance' ? 'Finance Team' : 'Client'}
+              {userRole === 'finance' ? 'Finance Team' : userRole === 'admin' ? 'Admin' : 'Client'}
             </span>
           )}
           <Button 
