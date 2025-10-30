@@ -375,10 +375,10 @@ const LeadsSchema = () => {
       const headers = [
       'User ID',
       'Cost',
-        'Lead Type',
       'Lead ID',
       'Project ID',
       'Project Name',
+        'Lead Type',
       // 'Final Work Completion Date',
         'Work Completion Date',
         'Revised Work Completion Date',
@@ -401,10 +401,9 @@ const LeadsSchema = () => {
         '', // User ID - will be added later
         '', // Cost - will be added later
         lead.lead_id,
-        // lead type will be added later when present in data export context; keeping empty for now
-        // but include position in CSV per header ordering above
         lead.project_id || '',
         lead.project_name || '',
+        (lead as any).lead_type || '',
         formatDate((lead as any).work_completion_date),
         formatDate((lead as any).revisied_work_completion_date),
         formatDate((lead as any).final_work_completion_date),
@@ -644,9 +643,9 @@ const LeadsSchema = () => {
                   <TableHead className="w-28 text-center whitespace-normal break-words">User ID</TableHead>
                   <TableHead className="w-32 text-center whitespace-normal break-words">Cost</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Lead ID</TableHead>
-                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead Type</TableHead>
                   <TableHead className="w-28 text-center whitespace-normal break-words">Project ID</TableHead>
                   <TableHead className="w-48 text-center whitespace-normal break-words">Project Name</TableHead>
+                  <TableHead className="w-28 text-center whitespace-normal break-words">Lead Type</TableHead>
                   {/* <TableHead className="w-44 text-center whitespace-normal break-words">Final Work Completion Date</TableHead> */}
                   <TableHead className="w-44 text-center whitespace-normal break-words">
                     <div>
@@ -745,9 +744,9 @@ const LeadsSchema = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">—</TableCell>
                         <TableCell className="w-32 text-center">—</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
-                        <TableCell className="w-28 text-center">{(lead as any).lead_type || '—'}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
+                        <TableCell className="w-28 text-center">{(lead as any).lead_type || '—'}</TableCell>
                         {/* <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell> */}
                         <TableCell className="w-44 text-center">{formatDate((lead as any).work_completion_date)}</TableCell>
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
