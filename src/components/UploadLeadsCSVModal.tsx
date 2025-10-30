@@ -18,7 +18,7 @@ type LeadsCsvRow = {
   projectid?: string | null;
   project_name?: string | null;
   lead_id?: string | null;
-  work_completion_date?: string | null;
+  original_work_completion_date?: string | null;
   unit_basis_commercial?: string | null;
   project_incharge_approval?: string | null;
   project_incharge_approval_date?: string | null;
@@ -37,7 +37,7 @@ const REQUIRED_HEADERS = [
   'lead_id',
   'project_id',
   'project_name',
-  'work_completion_date',
+  'original_work_completion_date',
   'revisied_work_completion_date',
   'final_work_completion_date',
   'unit_basis_commercial',
@@ -151,7 +151,7 @@ export default function UploadLeadsCSVModal({ open, onClose, onSuccess }: Upload
         project_name: rec['project_name'] || null,
         lead_type: rec['lead_type'] || null as any,
         lead_id: (rec['lead_id'] || '').trim() || null,
-        work_completion_date: normalizeDate(rec['work_completion_date']),
+        original_work_completion_date: normalizeDate(rec['original_work_completion_date']),
         revisied_work_completion_date: normalizeDate(rec['revisied_work_completion_date']) as any,
         final_work_completion_date: normalizeDate(rec['final_work_completion_date']) as any,
         unit_basis_commercial: rec['unit_basis_commercial'] || null,

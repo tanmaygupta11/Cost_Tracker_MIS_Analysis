@@ -168,8 +168,8 @@ const ClientLeads = () => {
       // ✅ Apply Work Completion Date Range filter (using available date fields)
       let matchesWorkDate = true;
       if (workDateFrom || workDateTo) {
-        // Try to use work_completion_date or fallback to lead_id for ordering
-        const dateField = (lead as any).work_completion_date || (lead as any).lead_id;
+        // Use original_work_completion_date primarily, fallback to lead_id for ordering
+        const dateField = (lead as any).original_work_completion_date || (lead as any).lead_id;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -190,7 +190,7 @@ const ClientLeads = () => {
       let matchesClientDate = true;
       if (clientDateFrom || clientDateTo) {
         // Try to use client_incharge_approval_date or fallback to other date fields
-        const dateField = (lead as any).client_incharge_approval_date || (lead as any).work_completion_date || (lead as any).lead_id;
+        const dateField = (lead as any).client_incharge_approval_date || (lead as any).original_work_completion_date || (lead as any).lead_id;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -353,12 +353,12 @@ const ClientLeads = () => {
     const selectedLeadsData = filteredData.filter(lead => selectedLeads.includes(lead.lead_id));
     
     // CSV headers matching table columns
-    const headers = [
+      const headers = [
       'Lead ID',
       'Project ID',
       'Project Name',
       'Final Work Completion Date',
-      'Work Completion Date',
+        'Original Work Completion Date',
       'Unit Basis Commercial',
       'Project Incharge Approval',
       'Project Incharge Approval Date',
@@ -375,12 +375,12 @@ const ClientLeads = () => {
         lead.lead_id,
         lead.project_id || '',
         lead.project_name || '',
-        formatDate(lead.work_completion_date),
-        formatDate(lead.work_completion_date),
+        formatDate((lead as any).final_work_completion_date),
+        formatDate((lead as any).original_work_completion_date),
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
         formatDate(lead.project_incharge_approval_date),
-        formatDate(lead.work_completion_date),
+        formatDate((lead as any).revisied_work_completion_date),
         lead.client_incharge_approval || '',
         formatDate(lead.client_incharge_approval_date),
         ...(showAdditionalColumns ? [
@@ -451,7 +451,7 @@ const ClientLeads = () => {
       setLeads(prevLeads => 
         prevLeads.map(lead => 
           lead.lead_id === leadId 
-            ? { ...lead, work_completion_date: dateToSave }
+            ? { ...lead, revisied_work_completion_date: dateToSave } as any
             : lead
         )
       );
@@ -844,8 +844,8 @@ const ClientLeads = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate(lead["Original_Work_Completion_Date"])}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).final_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).original_work_completion_date)}</TableCell>
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
@@ -877,10 +877,10 @@ const ClientLeads = () => {
                           ) : (
                             <div 
                               className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors"
-                              onClick={() => handleEditDate(lead.lead_id, lead.work_completion_date)}
+                              onClick={() => handleEditDate(lead.lead_id, (lead as any).revisied_work_completion_date)}
                               title="Click to edit"
                             >
-                              {formatDate(lead.work_completion_date)}
+                              {formatDate((lead as any).revisied_work_completion_date)}
                             </div>
                           )}
                         </TableCell>

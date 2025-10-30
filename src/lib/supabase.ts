@@ -148,12 +148,12 @@ export const fetchLeads = async (projectId?: string, filters?: {
   }
   // Note: status and validation_file_id columns don't exist in new schema
   
-  // Date range filters - now using work_completion_date
+  // Date range filters - now using original_work_completion_date
   if (filters?.workDateFrom) {
-    query = query.gte('work_completion_date', filters.workDateFrom);
+    query = query.gte('original_work_completion_date', filters.workDateFrom);
   }
   if (filters?.workDateTo) {
-    query = query.lte('work_completion_date', filters.workDateTo);
+    query = query.lte('original_work_completion_date', filters.workDateTo);
   }
   if (filters?.clientDateFrom) {
     query = query.gte('client_incharge_approval_date', filters.clientDateFrom);
@@ -162,7 +162,7 @@ export const fetchLeads = async (projectId?: string, filters?: {
     query = query.lte('client_incharge_approval_date', filters.clientDateTo);
   }
   
-  // If revMonth is provided, filter by matching month and year using work_completion_date
+  // If revMonth is provided, filter by matching month and year using original_work_completion_date
   if (filters?.revMonth) {
     // Extract YYYY-MM from the date (e.g., "2024-11-15" -> "2024-11")
     const yearMonth = filters.revMonth.substring(0, 7); // Gets "2024-11"
@@ -172,9 +172,9 @@ export const fetchLeads = async (projectId?: string, filters?: {
     const month = parseInt(yearMonth.substring(5, 7));
     const lastDay = new Date(year, month, 0).getDate(); // Gets 30 for November, 31 for January, etc.
     
-    // Filter leads where work_completion_date matches the same month/year
-    query = query.gte('work_completion_date', `${yearMonth}-01`)
-                 .lte('work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
+    // Filter leads where original_work_completion_date matches the same month/year
+    query = query.gte('original_work_completion_date', `${yearMonth}-01`)
+                 .lte('original_work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
   }
 
   const { data, error } = await query
@@ -250,12 +250,12 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
   }
   // Note: status and validation_file_id columns don't exist in new schema
   
-  // Date range filters - now using work_completion_date
+  // Date range filters - now using original_work_completion_date
   if (filters?.workDateFrom) {
-    query = query.gte('work_completion_date', filters.workDateFrom);
+    query = query.gte('original_work_completion_date', filters.workDateFrom);
   }
   if (filters?.workDateTo) {
-    query = query.lte('work_completion_date', filters.workDateTo);
+    query = query.lte('original_work_completion_date', filters.workDateTo);
   }
   if (filters?.clientDateFrom) {
     query = query.gte('client_incharge_approval_date', filters.clientDateFrom);
@@ -264,15 +264,15 @@ export const fetchAllLeads = async (projectId?: string, filters?: {
     query = query.lte('client_incharge_approval_date', filters.clientDateTo);
   }
   
-  // If revMonth is provided, filter by matching month and year using work_completion_date
+  // If revMonth is provided, filter by matching month and year using original_work_completion_date
   if (filters?.revMonth) {
     const yearMonth = filters.revMonth.substring(0, 7);
     const year = parseInt(yearMonth.substring(0, 4));
     const month = parseInt(yearMonth.substring(5, 7));
     const lastDay = new Date(year, month, 0).getDate();
     
-    query = query.gte('work_completion_date', `${yearMonth}-01`)
-                 .lte('work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
+    query = query.gte('original_work_completion_date', `${yearMonth}-01`)
+                 .lte('original_work_completion_date', `${yearMonth}-${lastDay.toString().padStart(2, '0')}`);
   }
 
   const { data, error } = await query
@@ -303,7 +303,7 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
     'Project ID', 
     'Project ID (Alt)',
     'Project Name',
-    'Work Completion Date',
+    'Original Work Completion Date',
     'Revised Work Completion Date',
     'Final Work Completion Date',
     'Unit Basis Commercial',
@@ -328,7 +328,7 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
     lead.project_id || '',
     lead.projectid || '',
     lead.project_name || '',
-    lead.work_completion_date || '',
+    (lead as any).original_work_completion_date || '',
     lead.revisied_work_completion_date || '',
     lead.final_work_completion_date || '',
     lead.unit_basis_commercial || '',
@@ -533,11 +533,10 @@ export const fetchActiveWorkers = async () => {
   return { data: data || [], error: null };
 };
 
-// Update work completion date for a lead - updated for new schema
-// Note: New schema only has work_completion_date (not revisied_work_completion_date)
+// Update revised work completion date for a lead - align with schema
 export const updateLeadRevisedDate = async (leadId: string, revisedDate: string | null) => {
   // Try to match by lead_id if it's not numeric, otherwise use id
-  let query = supabase.from('leads').update({ work_completion_date: revisedDate });
+  let query = supabase.from('leads').update({ revisied_work_completion_date: revisedDate });
   
   // If leadId is numeric, it's likely the id field, otherwise it's lead_id
   if (leadId && leadId.match(/^\d+$/)) {

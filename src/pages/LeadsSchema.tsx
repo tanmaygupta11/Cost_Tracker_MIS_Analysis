@@ -292,8 +292,8 @@ const LeadsSchema = () => {
       // ✅ Apply Work Completion Date Range filter (using available date fields)
       let matchesWorkDate = true;
       if (workDateFrom || workDateTo) {
-        // Try to use final_work_completion_date or fallback to other date fields
-        const dateField = (lead as any).final_work_completion_date || (lead as any).created_at;
+        // Use original_work_completion_date primarily, fallback to created_at
+        const dateField = (lead as any).original_work_completion_date || (lead as any).created_at;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -314,7 +314,7 @@ const LeadsSchema = () => {
       let matchesClientDate = true;
       if (clientDateFrom || clientDateTo) {
         // Try to use client_incharge_approval_date or fallback to other date fields
-        const dateField = (lead as any).client_incharge_approval_date || (lead as any).final_work_completion_date || (lead as any).created_at;
+        const dateField = (lead as any).client_incharge_approval_date || (lead as any).original_work_completion_date || (lead as any).created_at;
         if (dateField) {
           try {
             const leadDate = new Date(dateField);
@@ -379,8 +379,7 @@ const LeadsSchema = () => {
       'Project ID',
       'Project Name',
         'Lead Type',
-      // 'Final Work Completion Date',
-        'Work Completion Date',
+        'Original Work Completion Date',
         'Revised Work Completion Date',
         'Final Work Completion Date',
       'Unit Basis Commercial',
@@ -404,7 +403,7 @@ const LeadsSchema = () => {
         lead.project_id || '',
         lead.project_name || '',
         (lead as any).lead_type || '',
-        formatDate((lead as any).work_completion_date),
+        formatDate((lead as any).original_work_completion_date),
         formatDate((lead as any).revisied_work_completion_date),
         formatDate((lead as any).final_work_completion_date),
         lead.unit_basis_commercial || '',
@@ -747,8 +746,7 @@ const LeadsSchema = () => {
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
                         <TableCell className="w-28 text-center">{(lead as any).lead_type || '—'}</TableCell>
-                        {/* <TableCell className="w-44 text-center">{formatDate(lead.final_work_completion_date)}</TableCell> */}
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).original_work_completion_date)}</TableCell>
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
