@@ -563,15 +563,15 @@ const FinanceDashboard = () => {
                   />
                   <Legend />
                   <Bar 
-                    dataKey="cost" 
-                    fill="#f97316" 
-                    name="Cost"
-                    radius={[8, 8, 0, 0]}
-                  />
-                  <Bar 
                     dataKey="revenue" 
                     fill="hsl(var(--primary))" 
                     name="Revenue"
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="cost" 
+                    fill="#f97316" 
+                    name="Cost"
                     radius={[8, 8, 0, 0]}
                   />
                 </BarChart>

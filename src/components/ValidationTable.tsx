@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, X } from "lucide-react";
 import type { MISRecord } from "@/lib/supabase";
-import { formatRevenueMonth, formatCurrency } from "@/lib/supabase";
+import { formatRevenueMonth, formatCurrency, exportMisRecordsToCSV } from "@/lib/supabase";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 interface ValidationTableProps {
   data: MISRecord[];
@@ -32,6 +34,8 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   
   const rowsPerPage = 5;
+  const { toast } = useToast();
+  const [selected, setSelected] = useState<number[]>([]);
 
   // NEW: Generate months array for the selected year
   const getMonthsForYear = (year: string) => {
@@ -227,6 +231,32 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
   };
 
+  const isRowSelected = (sl: number | null | undefined) => sl != null && selected.includes(sl);
+  const toggleRow = (sl: number | null | undefined, checked: boolean) => {
+    if (sl == null) return;
+    setSelected(prev => checked ? Array.from(new Set([...prev, sl])) : prev.filter(x => x !== sl));
+  };
+  const toggleSelectAllPage = (checked: boolean) => {
+    const pageIds = paginatedData.map(r => r.sl_no).filter((v): v is number => v != null);
+    setSelected(prev => {
+      if (checked) {
+        return Array.from(new Set([...prev, ...pageIds]));
+      }
+      return prev.filter(x => !pageIds.includes(x));
+    });
+  };
+  const allOnPageSelected = paginatedData.length > 0 && paginatedData.every(r => isRowSelected(r.sl_no));
+  const anyOnPageSelected = paginatedData.some(r => isRowSelected(r.sl_no));
+
+  const handleDownloadSelected = () => {
+    const selectedRecords = filteredAndSortedData.filter(r => r.sl_no != null && selected.includes(r.sl_no as number));
+    if (selectedRecords.length === 0) return;
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `mis_records_${timestamp}.csv`;
+    exportMisRecordsToCSV(selectedRecords as MISRecord[], filename);
+    toast({ title: "Download Complete", description: `Downloaded ${selectedRecords.length} record(s).` });
+  };
+
 
   const clearFilters = () => {
     setCustomerFilter('');
@@ -298,12 +328,28 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             Clear Filters
           </Button>
         </div>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={handleDownloadSelected}
+            disabled={selected.length === 0}
+            className="rounded-xl"
+          >
+            Download Selected ({selected.length})
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10 text-center">
+                <Checkbox 
+                  checked={allOnPageSelected}
+                  onCheckedChange={(c) => toggleSelectAllPage(Boolean(c))}
+                  aria-checked={allOnPageSelected ? 'true' : (anyOnPageSelected ? 'mixed' : 'false')}
+                />
+              </TableHead>
               <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('rev_month')} className="h-8 px-2">
                   Month <SortIcon field="rev_month" />
@@ -349,6 +395,12 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
           <TableBody>
             {paginatedData.map((row, index) => (
               <TableRow key={row.sl_no}>
+                <TableCell className="w-10 text-center">
+                  <Checkbox
+                    checked={isRowSelected(row.sl_no)}
+                    onCheckedChange={(c) => toggleRow(row.sl_no, Boolean(c))}
+                  />
+                </TableCell>
                 <TableCell>{formatRevenueMonth(row.rev_month)}</TableCell>
                 <TableCell>{row.customer_name || '—'}</TableCell>
                 <TableCell>{row.customer_id || '—'}</TableCell>

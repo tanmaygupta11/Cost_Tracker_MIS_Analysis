@@ -364,6 +364,61 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
   console.log(`Exported ${leads.length} leads to ${filename}`);
 };
 
+// Export MIS records to CSV
+export const exportMisRecordsToCSV = (records: MISRecord[], filename: string = 'mis_records.csv') => {
+  if (!records || records.length === 0) {
+    console.warn('No MIS records to export');
+    return;
+  }
+
+  const headers = [
+    'SL No',
+    'Rev Month',
+    'Customer Name',
+    'Customer ID',
+    'Project ID',
+    'Project Name',
+    'Revenue',
+    'Approved Cost',
+    'Unapproved Lead Count',
+    'Unapproved Lead Cost',
+    'LOB',
+    'Margin'
+  ];
+
+  const csvData = records.map(r => [
+    r.sl_no ?? '',
+    formatRevenueMonth(r.rev_month as any),
+    r.customer_name ?? '',
+    r.customer_id ?? '',
+    r.project_id ?? '',
+    r.project_name ?? '',
+    (r.revenue ?? '') as any,
+    (r.approved_cost ?? '') as any,
+    (r.unapproved_lead_count ?? '') as any,
+    (r.unapproved_lead_cost ?? '') as any,
+    (r as any).lob ?? '',
+    (r.margin ?? '') as any,
+  ]);
+
+  const csvContent = [
+    headers.join(','),
+    ...csvData.map(row => row.map(field => `"${field}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  console.log(`Exported ${records.length} MIS records to ${filename}`);
+};
+
 // Update lead approval status - approvals are TEXT values now
 export const updateLeadApproval = async (
   leadId: string,
