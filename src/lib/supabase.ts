@@ -589,12 +589,45 @@ export const fetchActiveWorkers = async () => {
 };
 
 // List CSV files for a given project from the public `csvs` bucket (prefix match)
-export const listCsvFilesForProject = async (projectId: string) => {
+// Helper function to convert revMonth (YYYY-MM-DD or YYYY-MM) to MMYY format for CSV matching
+const convertRevMonthToMMYY = (revMonth: string | null | undefined): string | null => {
+  if (!revMonth) return null;
+  
+  try {
+    // Extract YYYY-MM from revMonth (handle both YYYY-MM-DD and YYYY-MM formats)
+    const yearMonth = revMonth.substring(0, 7); // Gets "2025-04"
+    const parts = yearMonth.split('-');
+    
+    if (parts.length < 2) return null;
+    
+    const year = parts[0]; // "2025"
+    const month = parts[1]; // "04"
+    
+    // Extract last 2 digits of year (YY) and combine with month (MM)
+    const yy = year.substring(year.length - 2); // "25"
+    const mmyy = `${month}${yy}`; // "0425"
+    
+    console.log('convertRevMonthToMMYY:', { revMonth, yearMonth, month, year, yy, mmyy });
+    return mmyy;
+  } catch (error) {
+    console.error('Error converting revMonth to MMYY:', error);
+    return null;
+  }
+};
+
+export const listCsvFilesForProject = async (projectId: string, revMonth?: string | null) => {
   try {
     const pid = (projectId || '').toString().trim().toUpperCase();
     if (!pid) {
       return { files: [], error: new Error('Missing projectId') };
     }
+    
+    // Convert revMonth to MMYY format if provided
+    const mmyy = convertRevMonthToMMYY(revMonth);
+    const expectedPrefix = mmyy ? `${pid} M${mmyy}` : pid;
+    
+    console.log('listCsvFilesForProject:', { projectId, pid, revMonth, mmyy, expectedPrefix });
+    
     // List root of bucket; filter client-side by prefix
     const { data, error } = await supabase.storage
       .from('csvs')
@@ -605,14 +638,27 @@ export const listCsvFilesForProject = async (projectId: string) => {
       return { files: [], error };
     }
 
+    console.log('Total files in bucket:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('Sample filenames:', data.slice(0, 5).map(f => f.name));
+    }
+
     const matches = (data || [])
       .filter(f => {
         if (!f || typeof f.name !== 'string') return false;
         const fname = f.name.trim().toUpperCase();
+        const prefixUpper = expectedPrefix.toUpperCase();
+        
+        // If revMonth provided, match both project ID and month/year
+        if (mmyy) {
+          return fname.startsWith(prefixUpper);
+        }
+        // If revMonth not provided, fall back to project ID-only matching
         return fname.startsWith(pid);
       })
       .map(f => ({ name: f.name, path: f.name, updatedAt: (f as any).updated_at })) as Array<{ name: string; path: string; updatedAt?: string }>;
 
+    console.log('Matched files:', matches.length, matches.map(f => f.name));
     return { files: matches, error: null };
   } catch (e: any) {
     return { files: [], error: e };

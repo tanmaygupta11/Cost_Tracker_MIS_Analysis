@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate, listCsvFilesForProject, getCsvPublicUrl } from "@/lib/supabase";
+import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate, formatRevenueMonth, listCsvFilesForProject, getCsvPublicUrl } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X, Loader2, Plus } from "lucide-react";
 import UploadLeadsCSVModal from "@/components/UploadLeadsCSVModal";
@@ -528,13 +528,16 @@ const LeadsSchema = () => {
                 toast({ title: "Project ID missing", description: "Open from a specific project to find CSVs.", variant: "destructive" });
                 return;
               }
-              const { files, error } = await listCsvFilesForProject(projectId);
+              const { files, error } = await listCsvFilesForProject(projectId, revMonth);
               if (error) {
                 toast({ title: "Error", description: "Failed to list CSVs.", variant: "destructive" });
                 return;
               }
               if (!files || files.length === 0) {
-                toast({ title: "No CSVs found", description: `No files starting with ${projectId} in csvs bucket.` });
+                const searchDesc = revMonth 
+                  ? `No files matching ${projectId} for ${formatRevenueMonth(revMonth)} in csvs bucket.`
+                  : `No files starting with ${projectId} in csvs bucket.`;
+                toast({ title: "No CSVs found", description: searchDesc });
                 return;
               }
               if (files.length === 1) {
