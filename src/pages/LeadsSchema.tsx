@@ -512,7 +512,7 @@ const LeadsSchema = () => {
             ) : (
               <>
                 <Download className="h-4 w-4" />
-                Download All Leads
+                Download Top 1000 Leads
               </>
             )}
           </Button>
