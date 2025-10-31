@@ -86,13 +86,13 @@ const LeadsSchema = () => {
           return;
         }
         
-        // If no error but data length is 0, simulate 5s loading then show error
+        // If no error but data length is 0, simulate 15s loading then show error
         if (data && data.length === 0) {
           setSimulatingEmptyLoad(true);
-          // Wait 5 seconds
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          // Wait 15 seconds
+          await new Promise(resolve => setTimeout(resolve, 15000));
           setSimulatingEmptyLoad(false);
-          setEmptyLoadError('Failed to load data. Please retry after sometime');
+          setEmptyLoadError('We are sorry. This data is taking some time to load. Please retry after 5 min.');
           setLeads([]);
           setHasMoreData(false);
         } else {
@@ -240,12 +240,12 @@ const LeadsSchema = () => {
           return;
         }
         
-        // If no error but data length is 0, simulate 5s loading then show error
+        // If no error but data length is 0, simulate 15s loading then show error
         if (data && data.length === 0) {
           setSimulatingEmptyLoad(true);
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise(resolve => setTimeout(resolve, 15000));
           setSimulatingEmptyLoad(false);
-          setEmptyLoadError('Failed to load data. Please retry after sometime');
+          setEmptyLoadError('We are sorry. This data is taking some time to load. Please retry after 5 min.');
           setLeads([]);
           setHasMoreData(false);
         } else {
@@ -574,7 +574,7 @@ const LeadsSchema = () => {
             </div>
           ) : emptyLoadError ? (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <p className="text-red-500 text-lg font-medium">{emptyLoadError}</p>
+              <p className="text-blue-500 text-lg font-medium">{emptyLoadError}</p>
               <Button
                 onClick={handleRetry}
                 variant="default"
