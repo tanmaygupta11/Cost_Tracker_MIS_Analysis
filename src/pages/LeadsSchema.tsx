@@ -404,7 +404,7 @@ const LeadsSchema = () => {
         lead.project_name || '',
         (lead as any).lead_type || '',
         formatDate((lead as any).original_work_completion_date),
-        formatDate((lead as any).revisied_work_completion_date),
+        formatDate((lead as any).revised_work_completion_date),
         formatDate((lead as any).final_work_completion_date),
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
@@ -750,7 +750,7 @@ const LeadsSchema = () => {
                         <TableCell className="w-32 text-center">{formatCurrency(lead.unit_basis_commercial)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.project_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.project_incharge_approval_date)}</TableCell>
-                        <TableCell className="w-44 text-center">{formatDate((lead as any).revisied_work_completion_date)}</TableCell>
+                        <TableCell className="w-44 text-center">{formatDate((lead as any).revised_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{formatDate((lead as any).final_work_completion_date)}</TableCell>
                         <TableCell className="w-44 text-center">{lead.client_incharge_approval || '—'}</TableCell>
                         <TableCell className="w-48 text-center">{formatDate(lead.client_incharge_approval_date)}</TableCell>

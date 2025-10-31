@@ -380,7 +380,7 @@ const ClientLeads = () => {
         lead.unit_basis_commercial || '',
         lead.project_incharge_approval || '',
         formatDate(lead.project_incharge_approval_date),
-        formatDate((lead as any).revisied_work_completion_date),
+        formatDate((lead as any).revised_work_completion_date),
         lead.client_incharge_approval || '',
         formatDate(lead.client_incharge_approval_date),
         ...(showAdditionalColumns ? [
@@ -451,7 +451,7 @@ const ClientLeads = () => {
       setLeads(prevLeads => 
         prevLeads.map(lead => 
           lead.lead_id === leadId 
-            ? { ...lead, revisied_work_completion_date: dateToSave } as any
+            ? { ...lead, revised_work_completion_date: dateToSave } as any
             : lead
         )
       );
@@ -877,10 +877,10 @@ const ClientLeads = () => {
                           ) : (
                             <div 
                               className="cursor-pointer hover:bg-muted/50 rounded px-2 py-1 transition-colors"
-                              onClick={() => handleEditDate(lead.lead_id, (lead as any).revisied_work_completion_date)}
+                              onClick={() => handleEditDate(lead.lead_id, (lead as any).revised_work_completion_date)}
                               title="Click to edit"
                             >
-                              {formatDate((lead as any).revisied_work_completion_date)}
+                              {formatDate((lead as any).revised_work_completion_date)}
                             </div>
                           )}
                         </TableCell>

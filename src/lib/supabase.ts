@@ -329,7 +329,7 @@ export const exportLeadsToCSV = (leads: any[], filename: string = 'leads.csv') =
     lead.projectid || '',
     lead.project_name || '',
     (lead as any).original_work_completion_date || '',
-    lead.revisied_work_completion_date || '',
+    lead.revised_work_completion_date || '',
     lead.final_work_completion_date || '',
     lead.unit_basis_commercial || '',
     lead.project_incharge_approval || 'Pending',
@@ -591,7 +591,7 @@ export const fetchActiveWorkers = async () => {
 // Update revised work completion date for a lead - align with schema
 export const updateLeadRevisedDate = async (leadId: string, revisedDate: string | null) => {
   // Try to match by lead_id if it's not numeric, otherwise use id
-  let query = supabase.from('leads').update({ revisied_work_completion_date: revisedDate });
+  let query = supabase.from('leads').update({ revised_work_completion_date: revisedDate });
   
   // If leadId is numeric, it's likely the id field, otherwise it's lead_id
   if (leadId && leadId.match(/^\d+$/)) {

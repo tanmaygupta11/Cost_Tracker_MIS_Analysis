@@ -17,7 +17,7 @@ export interface Lead {
   project_id: string;
   project_name: string;
   final_work_completion_date: string | null;
-  revisied_work_completion_date: string | null;
+  revised_work_completion_date: string | null;
   unit_basis_commercial: number | null;
   project_incharge_approval: string | null;
   project_incharge_approval_date: string | null;
@@ -185,7 +185,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-001',
     project_name: 'Cloud Migration',
     final_work_completion_date: '15-01-2025',
-    revisied_work_completion_date: '20-01-2025',
+    revised_work_completion_date: '20-01-2025',
     unit_basis_commercial: 450000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '22-01-2025',
@@ -205,7 +205,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-002',
     project_name: 'Mobile App Development',
     final_work_completion_date: null,
-    revisied_work_completion_date: '05-02-2025',
+    revised_work_completion_date: '05-02-2025',
     unit_basis_commercial: 320000.00,
     project_incharge_approval: 'Pending',
     project_incharge_approval_date: null,
@@ -225,7 +225,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-003',
     project_name: 'ERP Implementation',
     final_work_completion_date: '28-12-2024',
-    revisied_work_completion_date: '30-12-2024',
+    revised_work_completion_date: '30-12-2024',
     unit_basis_commercial: 680000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '02-01-2025',
@@ -245,7 +245,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-001',
     project_name: 'Cloud Migration',
     final_work_completion_date: null,
-    revisied_work_completion_date: null,
+    revised_work_completion_date: null,
     unit_basis_commercial: 400000.00,
     project_incharge_approval: 'Rejected',
     project_incharge_approval_date: '10-01-2025',
@@ -265,7 +265,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-010',
     project_name: 'API Gateway',
     final_work_completion_date: '10-11-2024',
-    revisied_work_completion_date: '12-11-2024',
+    revised_work_completion_date: '12-11-2024',
     unit_basis_commercial: 180000.00,
     project_incharge_approval: 'Approved',
     project_incharge_approval_date: '15-11-2024',
@@ -285,7 +285,7 @@ export const mockLeads: Lead[] = [
     project_id: 'PROJ-001',
     project_name: 'Cloud Migration',
     final_work_completion_date: null,
-    revisied_work_completion_date: null,
+    revised_work_completion_date: null,
     unit_basis_commercial: 250000.00,
     project_incharge_approval: 'Pending',
     project_incharge_approval_date: null,
