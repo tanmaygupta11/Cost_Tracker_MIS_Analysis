@@ -221,47 +221,47 @@ const generateIncompleteFilesByMonth = (validations: Validation[]) => {
     }));
 };
 
-// Generate Margin by Month from MIS records
-const generateMarginByMonth = (misRecords: MISRecord[]) => {
-  const monthMap = new Map<string, number[]>();
+// Generate Margin by Month from MIS records (OLD CHART - COMMENTED OUT)
+// const generateMarginByMonth = (misRecords: MISRecord[]) => {
+//   const monthMap = new Map<string, number[]>();
 
-  misRecords.forEach(record => {
-    if (record.rev_month && record.margin !== null && record.margin !== undefined) {
-      const monthKey = extractYearMonth(record.rev_month);
-      if (monthKey) {
-        const arr = monthMap.get(monthKey) || [];
-        arr.push(Number(record.margin));
-        monthMap.set(monthKey, arr);
-      }
-    }
-  });
+//   misRecords.forEach(record => {
+//     if (record.rev_month && record.margin !== null && record.margin !== undefined) {
+//       const monthKey = extractYearMonth(record.rev_month);
+//       if (monthKey) {
+//         const arr = monthMap.get(monthKey) || [];
+//         arr.push(Number(record.margin));
+//         monthMap.set(monthKey, arr);
+//       }
+//     }
+//   });
 
-  const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b));
-  if (months.length === 0) return [];
+//   const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b));
+//   if (months.length === 0) return [];
 
-  // Latest month and contiguous 6-month window
-  const latest = months[months.length - 1];
-  const window: string[] = [];
-  const [latestYear, latestMonth] = latest.split('-').map(Number);
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(latestYear, latestMonth - 1, 1);
-    date.setMonth(date.getMonth() - i);
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    window.push(`${y}-${m}`);
-  }
+//   // Latest month and contiguous 6-month window
+//   const latest = months[months.length - 1];
+//   const window: string[] = [];
+//   const [latestYear, latestMonth] = latest.split('-').map(Number);
+//   for (let i = 5; i >= 0; i--) {
+//     const date = new Date(latestYear, latestMonth - 1, 1);
+//     date.setMonth(date.getMonth() - i);
+//     const y = date.getFullYear();
+//     const m = String(date.getMonth() + 1).padStart(2, '0');
+//     window.push(`${y}-${m}`);
+//   }
 
-  return window.map(month => {
-    const values = monthMap.get(month) || [];
-    // Use average if multiple values exist for the month; default 0
-    const margin = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
-    const rounded = Number(margin.toFixed(2));
-    return {
-      month: formatMonthForChart(month),
-      margin: rounded
-    };
-  });
-};
+//   return window.map(month => {
+//     const values = monthMap.get(month) || [];
+//     // Use average if multiple values exist for the month; default 0
+//     const margin = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+//     const rounded = Number(margin.toFixed(2));
+//     return {
+//       month: formatMonthForChart(month),
+//       margin: rounded
+//     };
+//   });
+// };
 
 // Generate Active Workers by Month from active_workers table
 // This function will be called with activeWorkers data separately
@@ -478,30 +478,49 @@ const FinanceDashboard = () => {
   const customerCountByMonth = generateCustomerCountByMonth(misRecords);
   const projectCountByMonth = generateProjectCountByMonth(misRecords);
   // Note: generateIncompleteFilesByMonth removed as Validation_completed doesn't exist in mis_records
-  const marginByMonth = generateMarginByMonth(misRecords);
+  // const marginByMonth = generateMarginByMonth(misRecords); // OLD CHART - COMMENTED OUT
   const activeWorkersByMonth = generateActiveWorkersByMonth(activeWorkers);
 
-  // Generate y-axis ticks for margin chart at 0.02 intervals
-  const marginTicks = useMemo(() => {
-    if (!marginByMonth || marginByMonth.length === 0) return [] as number[];
-    const values = marginByMonth.map((d: any) => Number(d.margin) || 0);
-    let min = Math.min(...values);
-    let max = Math.max(...values);
-    const step = 0.02;
-    // Expand a tiny bit to ensure at least one tick if min==max
-    if (min === max) {
-      min -= step;
-      max += step;
-    }
-    // Snap to step boundaries
-    min = Math.floor(min / step) * step;
-    max = Math.ceil(max / step) * step;
+  // Hard-coded GM% margin trend data
+  const gmMarginByMonth = [
+    { month: 'Apr 25', margin: 21.14 },
+    { month: 'May 25', margin: 21.20 },
+    { month: 'Jun 25', margin: 20.18 },
+    { month: 'Jul 25', margin: 20.05 },
+    { month: 'Aug 25', margin: 19.14 },
+    { month: 'Sep 25', margin: 19.25 },
+  ];
+
+  // Generate y-axis ticks for margin chart at 0.02 intervals (OLD CHART - COMMENTED OUT)
+  // const marginTicks = useMemo(() => {
+  //   if (!marginByMonth || marginByMonth.length === 0) return [] as number[];
+  //   const values = marginByMonth.map((d: any) => Number(d.margin) || 0);
+  //   let min = Math.min(...values);
+  //   let max = Math.max(...values);
+  //   const step = 0.02;
+  //   // Expand a tiny bit to ensure at least one tick if min==max
+  //   if (min === max) {
+  //     min -= step;
+  //     max += step;
+  //   }
+  //   // Snap to step boundaries
+  //   min = Math.floor(min / step) * step;
+  //   max = Math.ceil(max / step) * step;
+  //   const ticks: number[] = [];
+  //   for (let v = min; v <= max + 1e-9; v += step) {
+  //     ticks.push(Number(v.toFixed(2)));
+  //   }
+  //   return ticks;
+  // }, [marginByMonth]);
+
+  // Generate y-axis ticks for GM% margin chart (fixed range 10-25 with 0.5 step)
+  const gmMarginTicks = useMemo(() => {
     const ticks: number[] = [];
-    for (let v = min; v <= max + 1e-9; v += step) {
+    for (let v = 10; v <= 25 + 1e-9; v += 0.5) {
       ticks.push(Number(v.toFixed(2)));
     }
     return ticks;
-  }, [marginByMonth]);
+  }, []);
   
   // Filtered revenue share based on selected month and chart type
   const revenueShare = useMemo(() => {
@@ -666,26 +685,22 @@ const FinanceDashboard = () => {
           </AnalyticsCard>
         </div>
 
-        {/* Second Row - Margin Trend and Active Workers */}
+        {/* Second Row - GM% Margin Trend and Active Workers */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Margin Trend by Month - Line Chart */}
-          <AnalyticsCard title="Margin Trend by Month">
-            {marginByMonth.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={marginByMonth}>
+          {/* GM% Trend by Month - Line Chart */}
+          <AnalyticsCard title="GM% Trend by Month">
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={gmMarginByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    allowDecimals
-                    ticks={marginTicks}
-                    domain={[
-                      marginTicks.length ? marginTicks[0] : 'auto',
-                      marginTicks.length ? marginTicks[marginTicks.length - 1] : 'auto'
-                    ]}
-                    tickFormatter={(v: number) => v.toFixed(2)}
-                    label={{ value: 'Margin', angle: -90, position: 'insideLeft' }}
-                  />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  allowDecimals
+                  ticks={gmMarginTicks}
+                  domain={[10, 25]}
+                  tickFormatter={(v: number) => v.toFixed(2)}
+                  label={{ value: 'GM%', angle: -90, position: 'insideLeft' }}
+                />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))', 
@@ -694,27 +709,17 @@ const FinanceDashboard = () => {
                   }} 
                 />
                 <Legend />
-                  <Line 
-                    type="monotone"
-                    dataKey="margin" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    name="Margin"
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
+                <Line 
+                  type="monotone"
+                  dataKey="margin" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  name="GM%"
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[350px]">
-                <div className="text-center">
-                  <p className="text-muted-foreground text-lg">No data available</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Data will be available soon
-                  </p>
-                </div>
-              </div>
-            )}
           </AnalyticsCard>
 
           {/* Active Workers by Month - Bar Chart */}
