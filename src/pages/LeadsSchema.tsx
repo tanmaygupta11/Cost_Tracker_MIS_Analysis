@@ -6,10 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate } from "@/lib/supabase";
+import { fetchLeads, fetchAllLeads, exportLeadsToCSV, formatCurrency, formatDate, listCsvFilesForProject, getCsvPublicUrl } from "@/lib/supabase";
 import type { Lead } from "@/lib/supabase";
 import { Download, ArrowLeft, X, Loader2, Plus } from "lucide-react";
 import UploadLeadsCSVModal from "@/components/UploadLeadsCSVModal";
+import DownloadCSVOptionsModal from "@/components/DownloadCSVOptionsModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -34,6 +35,8 @@ const LeadsSchema = () => {
   const [emptyLoadError, setEmptyLoadError] = useState<string | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [csvOptions, setCsvOptions] = useState<Array<{ name: string; path: string; updatedAt?: string }>>([]);
   const { role } = useAuth();
   
   // ✅ Get query parameters for filtering
@@ -514,6 +517,41 @@ const LeadsSchema = () => {
             )}
           </Button>
 
+          <Button
+            onClick={async () => {
+              if (!projectId) {
+                toast({ title: "Project ID missing", description: "Open from a specific project to find CSVs.", variant: "destructive" });
+                return;
+              }
+              const { files, error } = await listCsvFilesForProject(projectId);
+              if (error) {
+                toast({ title: "Error", description: "Failed to list CSVs.", variant: "destructive" });
+                return;
+              }
+              if (!files || files.length === 0) {
+                toast({ title: "No CSVs found", description: `No files starting with ${projectId} in csvs bucket.` });
+                return;
+              }
+              if (files.length === 1) {
+                const url = getCsvPublicUrl(files[0].path);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = files[0].name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast({ title: "Download started", description: files[0].name });
+                return;
+              }
+              setCsvOptions(files);
+              setIsPickerOpen(true);
+            }}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            Download Project CSVs
+          </Button>
+
           {role === 'admin' && (
             <Button
               onClick={() => setIsUploadOpen(true)}
@@ -821,6 +859,26 @@ const LeadsSchema = () => {
             setLeads(data || []);
           };
           reload();
+        }}
+      />
+
+      {/* CSV Options Modal */}
+      <DownloadCSVOptionsModal
+        open={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        files={csvOptions}
+        onDownload={(path) => {
+          const f = csvOptions.find(x => x.path === path);
+          if (!f) return;
+          const url = getCsvPublicUrl(path);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = f.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setIsPickerOpen(false);
+          toast({ title: "Download started", description: f.name });
         }}
       />
     </div>

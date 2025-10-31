@@ -588,6 +588,43 @@ export const fetchActiveWorkers = async () => {
   return { data: data || [], error: null };
 };
 
+// List CSV files for a given project from the public `csvs` bucket (prefix match)
+export const listCsvFilesForProject = async (projectId: string) => {
+  try {
+    const pid = (projectId || '').toString().trim().toUpperCase();
+    if (!pid) {
+      return { files: [], error: new Error('Missing projectId') };
+    }
+    // List root of bucket; filter client-side by prefix
+    const { data, error } = await supabase.storage
+      .from('csvs')
+      .list('', { limit: 1000, sortBy: { column: 'updated_at', order: 'desc' } });
+
+    if (error) {
+      console.error('Error listing csvs bucket:', error);
+      return { files: [], error };
+    }
+
+    const matches = (data || [])
+      .filter(f => {
+        if (!f || typeof f.name !== 'string') return false;
+        const fname = f.name.trim().toUpperCase();
+        return fname.startsWith(pid);
+      })
+      .map(f => ({ name: f.name, path: f.name, updatedAt: (f as any).updated_at })) as Array<{ name: string; path: string; updatedAt?: string }>;
+
+    return { files: matches, error: null };
+  } catch (e: any) {
+    return { files: [], error: e };
+  }
+};
+
+// Build a public download URL for a file in the public `csvs` bucket
+export const getCsvPublicUrl = (path: string) => {
+  const { data } = supabase.storage.from('csvs').getPublicUrl(path);
+  return data.publicUrl;
+};
+
 // Update revised work completion date for a lead - align with schema
 export const updateLeadRevisedDate = async (leadId: string, revisedDate: string | null) => {
   // Try to match by lead_id if it's not numeric, otherwise use id
