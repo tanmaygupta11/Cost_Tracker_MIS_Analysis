@@ -92,7 +92,7 @@ const LeadsSchema = () => {
           // Wait 15 seconds
           await new Promise(resolve => setTimeout(resolve, 15000));
           setSimulatingEmptyLoad(false);
-          setEmptyLoadError('We are sorry. This data is taking some time to load. Please retry after 5 min.');
+          setEmptyLoadError('Data is taking time to load. Please come back after some time.');
           setLeads([]);
           setHasMoreData(false);
         } else {
@@ -245,7 +245,7 @@ const LeadsSchema = () => {
           setSimulatingEmptyLoad(true);
           await new Promise(resolve => setTimeout(resolve, 15000));
           setSimulatingEmptyLoad(false);
-          setEmptyLoadError('We are sorry. This data is taking some time to load. Please retry after 5 min.');
+          setEmptyLoadError('Data is taking time to load. Please come back after some time.');
           setLeads([]);
           setHasMoreData(false);
         } else {
