@@ -43,9 +43,6 @@ export default function DownloadCSVOptionsModal({ open, onClose, files, onDownlo
               />
               <div className="flex-1">
                 <div className="font-medium break-words">{f.name}</div>
-                {f.updatedAt && (
-                  <div className="text-xs text-muted-foreground">Updated: {new Date(f.updatedAt).toLocaleString()}</div>
-                )}
               </div>
             </label>
           ))}
