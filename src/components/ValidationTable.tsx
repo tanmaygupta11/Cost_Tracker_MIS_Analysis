@@ -421,7 +421,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                       console.log('URL will be:', `/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
                       console.log('=====================================');
                       // Note: validation_status and validation_file_id removed from navigation as they don't exist in mis_records
-                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}`);
+                      navigate(`/leads?customer_id=${row.customer_id}&project_id=${row.project_id}&rev_month=${row.rev_month}&from=mis`);
                     }}
                     variant="outline"
                     size="sm"

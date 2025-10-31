@@ -43,6 +43,7 @@ const LeadsSchema = () => {
   const customerId = searchParams.get('customer_id');
   const projectId = searchParams.get('project_id');
   const revMonth = searchParams.get('rev_month');
+  const fromMis = searchParams.get('from') === 'mis';
   // Note: validation_status and validation_file_id removed as they don't exist in new schema
   // const validationStatus = searchParams.get('validation_status');
   // const validationFileId = searchParams.get('validation_file_id');
@@ -456,6 +457,9 @@ const LeadsSchema = () => {
                           clientDateFrom || 
                           clientDateTo;
 
+  // Disable certain actions when no DB records were fetched
+  const noDbRecords = (leads?.length || 0) === 0;
+
   const clearFilters = () => {
     setWorkDateFrom('');
     setWorkDateTo('');
@@ -494,13 +498,14 @@ const LeadsSchema = () => {
             onClick={() => setShowAdditionalColumns(!showAdditionalColumns)}
             variant="outline"
             className="flex items-center gap-2"
+            disabled={noDbRecords}
           >
             {showAdditionalColumns ? 'Hide Additional Columns' : 'Show Additional Columns'}
           </Button>
           
           <Button
             onClick={handleDownloadAll}
-            disabled={downloading}
+            disabled={downloading || noDbRecords}
             variant="default"
             className="flex items-center gap-2"
           >
@@ -546,6 +551,7 @@ const LeadsSchema = () => {
               setCsvOptions(files);
               setIsPickerOpen(true);
             }}
+            disabled={noDbRecords}
             variant="outline"
             className="flex items-center gap-2"
           >
