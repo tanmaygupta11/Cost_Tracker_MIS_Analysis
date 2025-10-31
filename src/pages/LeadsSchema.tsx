@@ -397,8 +397,8 @@ const LeadsSchema = () => {
     const csvContent = [
       headers.join(','),
       ...selectedLeadsData.map(lead => [
-        '', // User ID - will be added later
-        '', // Cost - will be added later
+        (lead as any).user_id || '',
+        (lead as any).cost || '',
         lead.lead_id,
         lead.project_id || '',
         lead.project_name || '',
@@ -463,7 +463,7 @@ const LeadsSchema = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation userRole="finance" />
+      <Navigation userRole={role || 'finance'} />
       
       <main className="w-full px-6 sm:px-8 md:px-10 lg:px-12 pt-20 pb-8">
         <div className="mb-6">
@@ -740,8 +740,8 @@ const LeadsSchema = () => {
                             onCheckedChange={(checked) => handleSelectLead(lead.lead_id, checked as boolean)}
                           />
                         </TableCell>
-                        <TableCell className="w-28 font-mono text-sm text-center">—</TableCell>
-                        <TableCell className="w-32 text-center">—</TableCell>
+                        <TableCell className="w-28 font-mono text-sm text-center">{(lead as any).user_id || '—'}</TableCell>
+                        <TableCell className="w-32 text-center">{formatCurrency((lead as any).cost)}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.lead_id}</TableCell>
                         <TableCell className="w-28 font-mono text-sm text-center">{lead.project_id || '—'}</TableCell>
                         <TableCell className="w-48 font-medium text-center whitespace-normal break-words">{lead.project_name || '—'}</TableCell>
