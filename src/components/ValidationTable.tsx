@@ -130,7 +130,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
   const hasActiveFilters = customerFilter || 
                           projectFilter || 
                           projectIdFilter || 
-                          customerIdFilter || 
+                          // customerIdFilter || // COMMENTED OUT
                           selectedYear || 
                           selectedMonth;
 
@@ -148,7 +148,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       const matchesCustomer = !customerFilter || (item.customer_name && item.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
       const matchesProject = !projectFilter || (item.project_name && item.project_name.toLowerCase().includes(projectFilter.toLowerCase()));
       const matchesProjectId = !projectIdFilter || (item.project_id && item.project_id.toLowerCase().includes(projectIdFilter.toLowerCase()));
-      const matchesCustomerId = !customerIdFilter || (item.customer_id && item.customer_id.toLowerCase().includes(customerIdFilter.toLowerCase()));
+      // const matchesCustomerId = !customerIdFilter || (item.customer_id && item.customer_id.toLowerCase().includes(customerIdFilter.toLowerCase())); // COMMENTED OUT
       
       // NEW: Updated month filtering logic for dynamic dropdown
       let matchesMonth = true;
@@ -171,7 +171,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
       }
       // If neither selected, show all records (matchesMonth remains true)
       
-      return matchesCustomer && matchesProject && matchesProjectId && matchesCustomerId && matchesMonth;
+      return matchesCustomer && matchesProject && matchesProjectId /* && matchesCustomerId*/ && matchesMonth; // COMMENTED OUT matchesCustomerId
     });
 
     filtered.sort((a, b) => {
@@ -264,7 +264,7 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
     setCustomerFilter('');
     setProjectFilter('');
     setProjectIdFilter('');
-    setCustomerIdFilter('');
+    // setCustomerIdFilter(''); // COMMENTED OUT
     setSelectedYear('');
     setSelectedMonth('');
     setDropdownMode('years');
@@ -288,12 +288,13 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
             onChange={(e) => setProjectFilter(e.target.value)}
             className="max-w-[200px]"
           />
-          <Input
+          {/* Customer ID Filter - COMMENTED OUT */}
+          {/* <Input
             placeholder="Filter by customer ID"
             value={customerIdFilter}
             onChange={(e) => setCustomerIdFilter(e.target.value)}
             className="max-w-[200px]"
-          />
+          /> */}
           <Input
             placeholder="Filter by customer name"
             value={customerFilter}
@@ -362,11 +363,12 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                   Customer Name <SortIcon field="customer_name" />
                 </Button>
               </TableHead>
-              <TableHead>
+              {/* Customer ID Column - COMMENTED OUT */}
+              {/* <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('customer_id')} className="h-8 px-2">
                   Customer ID <SortIcon field="customer_id" />
                 </Button>
-              </TableHead>
+              </TableHead> */}
               <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('project_id')} className="h-8 px-2">
                   Project ID <SortIcon field="project_id" />
@@ -405,7 +407,8 @@ const ValidationTable = ({ data, onViewLeads }: ValidationTableProps) => {
                 </TableCell>
                 <TableCell>{formatRevenueMonth(row.rev_month)}</TableCell>
                 <TableCell>{row.customer_name || '—'}</TableCell>
-                <TableCell>{row.customer_id || '—'}</TableCell>
+                {/* Customer ID Cell - COMMENTED OUT */}
+                {/* <TableCell>{row.customer_id || '—'}</TableCell> */}
                 <TableCell>{row.project_id || '—'}</TableCell>
                 <TableCell>{row.project_name || '—'}</TableCell>
                 <TableCell className="font-semibold">{formatCurrency(row.revenue)}</TableCell>

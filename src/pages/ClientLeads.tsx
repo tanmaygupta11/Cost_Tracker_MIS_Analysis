@@ -598,8 +598,7 @@ const ClientLeads = () => {
           <h2 className="text-3xl font-bold text-foreground mb-2">Lead Schema</h2>
           {customerId && projectId ? (
             <p className="text-muted-foreground">
-              Showing leads for Customer ID: <span className="font-mono">{customerId}</span> • 
-              Project ID: <span className="font-mono">{projectId}</span>
+              Showing leads for Project ID: <span className="font-mono">{projectId}</span>
             </p>
           ) : (
             <p className="text-muted-foreground">Manage and track your project leads</p>
