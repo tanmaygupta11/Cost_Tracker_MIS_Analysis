@@ -375,7 +375,7 @@ export const exportMisRecordsToCSV = (records: MISRecord[], filename: string = '
     'SL No',
     'Rev Month',
     'Customer Name',
-    'Customer ID',
+    // 'Customer ID', // COMMENTED OUT
     'Project ID',
     'Project Name',
     'Revenue',
@@ -390,7 +390,7 @@ export const exportMisRecordsToCSV = (records: MISRecord[], filename: string = '
     r.sl_no ?? '',
     formatRevenueMonth(r.rev_month as any),
     r.customer_name ?? '',
-    r.customer_id ?? '',
+    // r.customer_id ?? '', // COMMENTED OUT
     r.project_id ?? '',
     r.project_name ?? '',
     (r.revenue ?? '') as any,
